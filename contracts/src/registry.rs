@@ -5,11 +5,11 @@ use soroban_sdk::{
     String, Vec, symbol_short,
 };
 
-use crate::types::{Agent, DataKey, StellarMindEvent};
+use crate::types::{Agent, DataKey, ProximaEvent};
 
 contractmeta!(
     key = "Description",
-    val = "StellarMind Agent Registry — on-chain registry for AI agents on Stellar"
+    val = "Proxima Agent Registry — on-chain registry for AI agents on Stellar"
 );
 
 /// Errors that the registry contract can return
@@ -52,7 +52,7 @@ pub struct RegistryContract;
 #[contractimpl]
 impl RegistryContract {
 
-    /// Register a new AI agent in the StellarMind registry.
+    /// Register a new AI agent in the Proxima registry.
     ///
     /// # Arguments
     /// * `id`              - Unique agent identifier string (e.g. "my-image-gen-v1")
