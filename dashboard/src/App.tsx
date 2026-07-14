@@ -81,7 +81,7 @@ export default function App() {
             }}>S</div>
             <div>
               <div style={{ fontSize: "16px", fontWeight: "700", letterSpacing: "0.05em", color: "#fff" }}>
-                STELLARMIND
+                PROXIMA
               </div>
               <div style={{ fontSize: "10px", color: "rgba(0,200,255,0.7)", letterSpacing: "0.15em" }}>
                 AI AGENT REGISTRY
