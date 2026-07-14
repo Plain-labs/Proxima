@@ -2,7 +2,7 @@
 
 use soroban_sdk::{contracttype, Address, Bytes, String, Vec};
 
-/// Represents a registered AI agent in the StellarMind registry.
+/// Represents a registered AI agent in the Proxima registry.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Agent {
@@ -82,7 +82,7 @@ pub struct PaymentRecord {
 
 /// Events emitted by the contracts (for indexing and the dashboard feed)
 #[contracttype]
-pub enum StellarMindEvent {
+pub enum ProximaEvent {
     AgentRegistered(String),       // agent_id
     AgentUpdated(String),          // agent_id
     AgentDeactivated(String),      // agent_id
