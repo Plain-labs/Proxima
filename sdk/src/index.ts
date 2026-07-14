@@ -1,20 +1,20 @@
 /**
- * @stellarmind/sdk
+ * @proxima/sdk
  *
- * The official TypeScript SDK for StellarMind — AI Agent Registry &
+ * The official TypeScript SDK for Proxima — AI Agent Registry &
  * Autonomous Payment Gateway on Stellar.
  *
  * @example
  * ```ts
- * import { StellarMind, USDC_ISSUER } from '@stellarmind/sdk'
+ * import { Proxima, USDC_ISSUER } from '@proxima/sdk'
  *
- * const mind = new StellarMind({ network: 'testnet' })
+ * const proxima = new Proxima({ network: 'testnet' })
  *
  * // Register an agent
- * await mind.registry.register({ ... }, keypair)
+ * await proxima.registry.register({ ... }, keypair)
  *
  * // Create a spending policy
- * const policyId = await mind.policy.create({
+ * const policyId = await proxima.policy.create({
  *   agent: agentAddress,
  *   dailyLimit: '10.00',
  *   maxPerTx: '0.50',
@@ -23,20 +23,20 @@
  * }, ownerKeypair)
  *
  * // Agent pays autonomously
- * await mind.policy.executePayment({ policyId, recipient, amount: '0.01', memo: '...' }, agentKeypair)
+ * await proxima.policy.executePayment({ policyId, recipient, amount: '0.01', memo: '...' }, agentKeypair)
  * ```
  */
 
 import { resolveConfig } from './stellar';
 import { RegistryClient } from './registry';
 import { PolicyClient } from './policy';
-import type { StellarMindConfig } from './types';
+import type { ProximaConfig } from './types';
 
-export class StellarMind {
+export class Proxima {
   public readonly registry: RegistryClient;
   public readonly policy: PolicyClient;
 
-  constructor(config: StellarMindConfig) {
+  constructor(config: ProximaConfig) {
     const resolved = resolveConfig(config);
     this.registry = new RegistryClient(resolved);
     this.policy = new PolicyClient(resolved);
@@ -55,8 +55,8 @@ export type {
   CreatePolicyParams,
   ExecutePaymentParams,
   PaymentRecord,
-  StellarMindConfig,
+  ProximaConfig,
   Network,
-  StellarMindEvent,
+  ProximaEvent,
 } from './types';
-export { StellarMindError, ErrorCodes } from './types';
+export { ProximaError, ErrorCodes } from './types';

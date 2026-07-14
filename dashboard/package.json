@@ -1,8 +1,8 @@
 {
-  "name": "stellarmind-dashboard",
+  "name": "proxima-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "StellarMind Explorer Dashboard — AI Agent Registry & Spending Policy Manager",
+  "description": "Proxima Explorer Dashboard — AI Agent Registry & Spending Policy Manager",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^13.0.0",
-    "@stellarmind/sdk": "workspace:*",
+    "@proxima/sdk": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },

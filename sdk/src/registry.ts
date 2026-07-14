@@ -9,12 +9,12 @@ import {
 } from '@stellar/stellar-sdk';
 import type { SorobanRpc } from '@stellar/stellar-sdk';
 
+import { ProximaError, ErrorCodes } from './types';
 import type {
   Agent,
   FindAgentsParams,
   RegisterAgentParams,
 } from './types';
-import { StellarMindError, ErrorCodes } from './types';
 import {
   ResolvedConfig,
   createRpcServer,
@@ -24,7 +24,7 @@ import {
 } from './stellar';
 
 /**
- * RegistryClient — interact with the StellarMind Agent Registry contract.
+ * RegistryClient — interact with the Proxima Agent Registry contract.
  *
  * @example
  * ```ts
@@ -50,7 +50,7 @@ export class RegistryClient {
 
   /**
    * Retrieve a single agent by ID.
-   * @throws StellarMindError if agent not found
+   * @throws ProximaError if agent not found
    */
   async getAgent(id: string): Promise<Agent> {
     try {
@@ -59,7 +59,7 @@ export class RegistryClient {
       );
 
       if (SorobanRpc.Api.isSimulationError(result)) {
-        throw new StellarMindError(
+        throw new ProximaError(
           `Agent "${id}" not found`,
           ErrorCodes.AGENT_NOT_FOUND,
           result.error
@@ -68,8 +68,8 @@ export class RegistryClient {
 
       return this._parseAgent(scValToNative((result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result!.retval));
     } catch (err) {
-      if (err instanceof StellarMindError) throw err;
-      throw new StellarMindError(
+      if (err instanceof ProximaError) throw err;
+      throw new ProximaError(
         `Failed to fetch agent: ${(err as Error).message}`,
         ErrorCodes.NETWORK_ERROR,
         err
@@ -115,7 +115,7 @@ export class RegistryClient {
 
     // TODO: integrate with event indexer for efficient search
     // For initial release: pull from a known list maintained off-chain
-    throw new StellarMindError(
+    throw new ProximaError(
       'find() requires an indexer integration — see docs/SDK_GUIDE.md for setup',
       'NOT_IMPLEMENTED'
     );
@@ -124,7 +124,7 @@ export class RegistryClient {
   // ─── Write Methods ──────────────────────────────────────────────────────────
 
   /**
-   * Register a new AI agent in the StellarMind registry.
+   * Register a new AI agent in the Proxima registry.
    *
    * @param params  Agent registration parameters
    * @param keypair Stellar keypair of the agent owner
@@ -204,10 +204,10 @@ export class RegistryClient {
       const status = await this.rpc.getTransaction(hash);
       if (status.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) return;
       if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
-        throw new StellarMindError('Transaction failed', ErrorCodes.CONTRACT_ERROR, status);
+        throw new ProximaError('Transaction failed', ErrorCodes.CONTRACT_ERROR, status);
       }
     }
-    throw new StellarMindError('Transaction confirmation timeout', ErrorCodes.NETWORK_ERROR);
+    throw new ProximaError('Transaction confirmation timeout', ErrorCodes.NETWORK_ERROR);
   }
 
   private _parseAgent(raw: any): Agent {

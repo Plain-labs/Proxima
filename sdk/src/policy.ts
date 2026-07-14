@@ -9,13 +9,13 @@ import {
 } from '@stellar/stellar-sdk';
 import type { SorobanRpc } from '@stellar/stellar-sdk';
 
+import { ProximaError, ErrorCodes } from './types';
 import type {
   SpendingPolicy,
   CreatePolicyParams,
   ExecutePaymentParams,
   PaymentRecord,
 } from './types';
-import { StellarMindError, ErrorCodes } from './types';
 import {
   ResolvedConfig,
   createRpcServer,
@@ -24,9 +24,9 @@ import {
 } from './stellar';
 
 /**
- * PolicyClient — interact with the StellarMind Spending Policy contract.
+ * PolicyClient — interact with the Proxima Spending Policy contract.
  *
- * This is the core of StellarMind's autonomous payment capability.
+ * This is the core of Proxima's autonomous payment capability.
  * It allows AI agents to make payments without per-transaction human approval,
  * within the boundaries defined by the policy owner.
  *
@@ -72,7 +72,7 @@ export class PolicyClient {
     );
 
     if (SorobanRpc.Api.isSimulationError(result)) {
-      throw new StellarMindError(
+      throw new ProximaError(
         `Policy ${policyId} not found`,
         ErrorCodes.POLICY_NOT_FOUND,
         result.error
@@ -165,7 +165,7 @@ export class PolicyClient {
   /**
    * Execute an autonomous payment under a spending policy.
    *
-   * This is the heart of StellarMind. The agent signs this transaction —
+   * This is the heart of Proxima. The agent signs this transaction —
    * the owner does NOT need to be present. The Soroban contract enforces
    * all spending limits on-chain.
    *
@@ -247,10 +247,10 @@ export class PolicyClient {
         return (status as SorobanRpc.Api.GetSuccessfulTransactionResponse).returnValue!;
       }
       if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
-        throw new StellarMindError('Transaction failed', ErrorCodes.CONTRACT_ERROR, status);
+        throw new ProximaError('Transaction failed', ErrorCodes.CONTRACT_ERROR, status);
       }
     }
-    throw new StellarMindError('Confirmation timeout', ErrorCodes.NETWORK_ERROR);
+    throw new ProximaError('Confirmation timeout', ErrorCodes.NETWORK_ERROR);
   }
 
   private _parsePolicy(raw: any): SpendingPolicy {

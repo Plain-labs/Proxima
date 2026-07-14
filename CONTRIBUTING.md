@@ -1,6 +1,6 @@
-# Contributing to StellarMind
+# Contributing to Proxima
 
-Welcome! StellarMind is a community-driven open-source project and we're actively looking for contributors across all skill levels. Whether you write Rust, TypeScript, React, or just good documentation — there's a place for you here.
+Welcome! Proxima is a community-driven open-source project and we're actively looking for contributors across all skill levels. Whether you write Rust, TypeScript, React, or just good documentation — there's a place for you here.
 
 ---
 
@@ -25,9 +25,9 @@ All open work lives in **GitHub Issues**. Every issue is labeled so you can find
 ## 🛠️ Project Structure
 
 ```
-stellarmind/
+Proxima/
 ├── contracts/   Rust/Soroban smart contracts
-├── sdk/         TypeScript SDK (@stellarmind/sdk)
+├── sdk/         TypeScript SDK (@Proxima/sdk)
 └── dashboard/   React explorer app
 ```
 
@@ -49,8 +49,8 @@ Each area has its own setup instructions below.
 ### Clone & Install
 
 ```bash
-git clone https://github.com/IyanuOluwaJesuloba/stellarmind
-cd stellarmind
+git clone https://github.com/IyanuOluwaJesuloba/Proxima
+cd Proxima
 npm install
 ```
 
@@ -105,14 +105,14 @@ npm run dev
 3. **Deploy contracts to testnet:**
    ```bash
    stellar contract deploy \
-     --wasm target/wasm32-unknown-unknown/release/stellarmind_contracts.wasm \
+     --wasm target/wasm32-unknown-unknown/release/Proxima_contracts.wasm \
      --source my-account \
      --network testnet
    ```
 
 4. **Point the SDK at testnet** (already the default):
    ```ts
-   const mind = new StellarMind({ network: 'testnet' })
+   const mind = new Proxima({ network: 'testnet' })
    ```
 
 ---

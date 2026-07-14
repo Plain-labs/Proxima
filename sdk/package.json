@@ -1,7 +1,7 @@
 {
-  "name": "@stellarmind/sdk",
+  "name": "@proxima/sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK for StellarMind — AI Agent Registry & Autonomous Payment Gateway on Stellar",
+  "description": "TypeScript SDK for Proxima — AI Agent Registry & Autonomous Payment Gateway on Stellar",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -32,11 +32,11 @@
     "autonomous-payments",
     "x402"
   ],
-  "author": "StellarMind Contributors",
+  "author": "Proxima Contributors",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/stellarmind"
+    "url": "https://github.com/your-org/proxima"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^13.0.0"
