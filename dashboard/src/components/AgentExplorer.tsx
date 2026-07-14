@@ -305,7 +305,7 @@ export default function AgentExplorer() {
           Agent Explorer
         </h1>
         <p style={{ fontSize: "12px", color: "rgba(226,232,240,0.4)", marginTop: "6px" }}>
-          Browse and discover AI agents registered on the StellarMind registry.
+          Browse and discover AI agents registered on the Proxima registry.
         </p>
       </div>
 
