@@ -1,5 +1,5 @@
 import { Networks, SorobanRpc, Horizon } from '@stellar/stellar-sdk';
-import type { Network, StellarMindConfig } from './types';
+import type { Network, ProximaConfig } from './types';
 
 // ─── Network Defaults ────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ export interface ResolvedConfig {
   network: Network;
 }
 
-export function resolveConfig(config: StellarMindConfig): ResolvedConfig {
+export function resolveConfig(config: ProximaConfig): ResolvedConfig {
   const defaults = NETWORK_CONFIG[config.network];
   const contracts = CONTRACT_IDS[config.network];
 
