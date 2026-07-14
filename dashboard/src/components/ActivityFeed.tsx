@@ -72,7 +72,7 @@ export function ActivityFeed() {
             Activity Feed
           </h1>
           <p style={{ fontSize: "12px", color: "rgba(226,232,240,0.4)", marginTop: "6px" }}>
-            Real-time stream of on-chain events from the StellarMind contracts.
+            Real-time stream of on-chain events from the Proxima contracts.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -180,7 +180,7 @@ export function RegisterAgent() {
           Agent Registered on Stellar!
         </h2>
         <p style={{ fontSize: "13px", color: "rgba(226,232,240,0.5)", marginTop: "10px", maxWidth: "400px", margin: "10px auto 0" }}>
-          Your agent <strong style={{ color: "#fff" }}>{form.id}</strong> is now live on the StellarMind registry and discoverable by the ecosystem.
+          Your agent <strong style={{ color: "#fff" }}>{form.id}</strong> is now live on the Proxima registry and discoverable by the ecosystem.
         </p>
         <div style={{
           marginTop: "24px", display: "inline-block",
@@ -219,7 +219,7 @@ export function RegisterAgent() {
           Register Agent
         </h1>
         <p style={{ fontSize: "12px", color: "rgba(226,232,240,0.4)", marginTop: "6px" }}>
-          Publish your AI agent to the on-chain StellarMind registry.
+          Publish your AI agent to the on-chain Proxima registry.
         </p>
       </div>
 
