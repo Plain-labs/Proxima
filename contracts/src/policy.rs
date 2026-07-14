@@ -9,7 +9,7 @@ use crate::types::{DataKey, PaymentRecord, SpendingPolicy};
 
 contractmeta!(
     key = "Description",
-    val = "StellarMind Spending Policy — programmable autonomous payment authorization for AI agents"
+    val = "Proxima Spending Policy — programmable autonomous payment authorization for AI agents"
 );
 
 /// Approximate number of ledgers in 24 hours (5s per ledger)
