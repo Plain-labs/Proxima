@@ -1,11 +1,11 @@
 [package]
-name = "stellarmind-contracts"
+name = "proxima-contracts"
 version = "0.1.0"
 edition = "2021"
-authors = ["StellarMind Contributors"]
+authors = ["Proxima Contributors"]
 license = "MIT"
-description = "StellarMind on-chain contracts: Agent Registry & Spending Policy"
-repository = "https://github.com/your-org/stellarmind"
+description = "Proxima on-chain contracts: Agent Registry & Spending Policy"
+repository = "https://github.com/your-org/proxima"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
