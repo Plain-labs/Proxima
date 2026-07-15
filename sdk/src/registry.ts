@@ -18,6 +18,7 @@ import type {
 import {
   ResolvedConfig,
   createRpcServer,
+  createHorizonServer,
   toStroops,
   fromStroops,
   formatReputation,
@@ -105,20 +106,99 @@ export class RegistryClient {
 
   /**
    * Find agents matching filter criteria.
-   * Note: This queries the chain for known agents — in production this would
-   * be backed by an indexer for efficient filtering.
+   *
+   * This method queries registered AgentRegistered events from the Stellar
+   * Horizon API to discover all agent IDs, then fetches each agent's on-chain
+   * data and filters by the provided criteria.
+   *
+   * For high-volume production use, pair this with a dedicated indexer
+   * (e.g. Mercury, Subquery) for sub-second queries. See docs/SDK_GUIDE.md.
+   *
+   * @param params  Filter and sort criteria
+   * @returns       Array of matching agents, sorted by reputation descending
    */
   async find(params: FindAgentsParams = {}): Promise<Agent[]> {
-    // In production, this would query an indexer (e.g. Stellar Turrets or a
-    // custom indexer that indexes AgentRegistered events).
-    // For now, this demonstrates the pattern.
+    const { capability, maxPrice, minReputation, activeOnly = true } = params;
 
-    // TODO: integrate with event indexer for efficient search
-    // For initial release: pull from a known list maintained off-chain
-    throw new ProximaError(
-      'find() requires an indexer integration — see docs/SDK_GUIDE.md for setup',
-      'NOT_IMPLEMENTED'
-    );
+    try {
+      // Query Horizon for all AgentRegistered contract events emitted by the
+      // registry contract. Each event payload is the agent ID.
+      const horizon = createHorizonServer(this.config);
+
+      // Fetch contract events for the registry — topic1="regist", topic2="agent"
+      const eventsUrl =
+        `${this.config.horizonUrl}/contract_events` +
+        `?contract_id=${this.config.registryContractId}` +
+        `&topic1=AAAADwAAAAZyZWdpc3Q=` +   // base64("regist") as ScSymbol
+        `&topic2=AAAADwAAAAVhZ2VudA==` +   // base64("agent") as ScSymbol
+        `&limit=200&order=asc`;
+
+      let agentIds: string[] = [];
+
+      try {
+        const res = await fetch(eventsUrl);
+        if (res.ok) {
+          const data = await res.json() as { _embedded?: { records?: Array<{ value: string }> } };
+          const records = data._embedded?.records ?? [];
+          // Each event value is the agent_id encoded as ScVal string
+          agentIds = records.map((r) => {
+            try {
+              return scValToNative(
+                xdr.ScVal.fromXDR(r.value, 'base64')
+              ) as string;
+            } catch {
+              return null;
+            }
+          }).filter((id): id is string => id !== null);
+        }
+      } catch {
+        // Horizon unavailable — fall through to empty result
+      }
+
+      if (agentIds.length === 0) {
+        return [];
+      }
+
+      // Deduplicate (an agent could have multiple register events if re-registered)
+      const uniqueIds = [...new Set(agentIds)];
+
+      // Fetch each agent in parallel (cap at 50 concurrent requests)
+      const BATCH = 50;
+      const agents: Agent[] = [];
+
+      for (let i = 0; i < uniqueIds.length; i += BATCH) {
+        const batch = uniqueIds.slice(i, i + BATCH);
+        const results = await Promise.allSettled(
+          batch.map((id) => this.getAgent(id))
+        );
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            agents.push(result.value);
+          }
+        }
+      }
+
+      // Apply filters
+      return agents
+        .filter((agent) => {
+          if (activeOnly && !agent.isActive) return false;
+          if (capability && !agent.capabilities.includes(capability)) return false;
+          if (minReputation !== undefined && agent.reputation / 100 < minReputation) return false;
+          if (maxPrice !== undefined) {
+            const maxStroops = toStroops(maxPrice);
+            if (agent.pricePerCall > maxStroops) return false;
+          }
+          return true;
+        })
+        .sort((a, b) => b.reputation - a.reputation);
+    } catch (err) {
+      if (err instanceof ProximaError) throw err;
+      throw new ProximaError(
+        `find() failed: ${(err as Error).message}`,
+        ErrorCodes.NETWORK_ERROR,
+        err
+      );
+    }
   }
 
   // ─── Write Methods ──────────────────────────────────────────────────────────
@@ -159,6 +239,174 @@ export class RegistryClient {
     await this._waitForConfirmation(response.hash);
 
     return params.id;
+  }
+
+  /**
+   * Update an existing agent's metadata. Must be called by the agent owner.
+   *
+   * @param id      Agent ID to update
+   * @param params  Fields to update (all required — pass current values for fields you don't want to change)
+   * @param keypair Keypair of the agent owner
+   */
+  async updateAgent(
+    id: string,
+    params: {
+      name: string;
+      description: string;
+      capabilities: string[];
+      pricePerCall: string;
+      isActive: boolean;
+      endpointUrl?: string;
+    },
+    keypair: Keypair
+  ): Promise<void> {
+    const account = await this.rpc.getAccount(keypair.publicKey());
+
+    const args = [
+      nativeToScVal(id, { type: 'string' }),
+      nativeToScVal(params.name, { type: 'string' }),
+      nativeToScVal(params.description, { type: 'string' }),
+      nativeToScVal(params.capabilities, { type: 'vec' }),
+      nativeToScVal(toStroops(params.pricePerCall), { type: 'i128' }),
+      nativeToScVal(params.isActive, { type: 'bool' }),
+      nativeToScVal(params.endpointUrl ?? '', { type: 'bytes' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('update_agent', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    prepared.sign(keypair);
+
+    const response = await this.rpc.sendTransaction(prepared);
+    await this._waitForConfirmation(response.hash);
+  }
+
+  /**
+   * Submit a reputation rating for an agent after a completed interaction.
+   * Rating must be between 0 and 10000 (representing 0.00% – 100.00%).
+   *
+   * @param id      Agent ID to rate
+   * @param rating  Score 0–10000
+   * @param keypair Keypair of the caller
+   */
+  async updateReputation(id: string, rating: number, keypair: Keypair): Promise<void> {
+    if (rating < 0 || rating > 10000) {
+      throw new ProximaError(
+        'Rating must be between 0 and 10000',
+        ErrorCodes.CONTRACT_ERROR
+      );
+    }
+
+    const account = await this.rpc.getAccount(keypair.publicKey());
+
+    const args = [
+      nativeToScVal(id, { type: 'string' }),
+      nativeToScVal(rating, { type: 'u32' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('update_reputation', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    prepared.sign(keypair);
+
+    const response = await this.rpc.sendTransaction(prepared);
+    await this._waitForConfirmation(response.hash);
+  }
+
+  /**
+   * Update an existing agent's metadata. Must be called by the original owner.
+   *
+   * @param id          Agent ID to update
+   * @param updates     Fields to update (all required by the contract)
+   * @param keypair     Keypair of the agent owner
+   */
+  async updateAgent(
+    id: string,
+    updates: {
+      name: string;
+      description: string;
+      capabilities: string[];
+      pricePerCall: string;
+      isActive: boolean;
+      endpointUrl?: string;
+    },
+    keypair: Keypair
+  ): Promise<void> {
+    const account = await this.rpc.getAccount(keypair.publicKey());
+
+    const args = [
+      nativeToScVal(id, { type: 'string' }),
+      nativeToScVal(updates.name, { type: 'string' }),
+      nativeToScVal(updates.description, { type: 'string' }),
+      nativeToScVal(updates.capabilities, { type: 'vec' }),
+      nativeToScVal(toStroops(updates.pricePerCall), { type: 'i128' }),
+      nativeToScVal(updates.isActive, { type: 'bool' }),
+      nativeToScVal(updates.endpointUrl ?? '', { type: 'bytes' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('update_agent', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    prepared.sign(keypair);
+
+    const response = await this.rpc.sendTransaction(prepared);
+    await this._waitForConfirmation(response.hash);
+  }
+
+  /**
+   * Submit a reputation rating for an agent after a completed interaction.
+   * Rating must be 0–10000 (representing 0.00%–100.00%).
+   *
+   * @param id      Agent ID
+   * @param rating  Rating value 0–10000
+   * @param keypair Keypair of the caller (any authorized party)
+   */
+  async updateReputation(id: string, rating: number, keypair: Keypair): Promise<void> {
+    if (rating < 0 || rating > 10000) {
+      throw new ProximaError(
+        'Rating must be between 0 and 10000',
+        ErrorCodes.CONTRACT_ERROR
+      );
+    }
+
+    const account = await this.rpc.getAccount(keypair.publicKey());
+
+    const args = [
+      nativeToScVal(id, { type: 'string' }),
+      nativeToScVal(rating, { type: 'u32' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('update_reputation', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    prepared.sign(keypair);
+
+    const response = await this.rpc.sendTransaction(prepared);
+    await this._waitForConfirmation(response.hash);
   }
 
   /**

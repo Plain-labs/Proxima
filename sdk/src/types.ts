@@ -50,6 +50,16 @@ export interface RegisterAgentParams {
   endpointUrl?: string;
 }
 
+export interface UpdateAgentParams {
+  name: string;
+  description: string;
+  capabilities: string[];
+  /** New price per call in asset units (e.g. "0.02") */
+  pricePerCall: string;
+  isActive: boolean;
+  endpointUrl?: string;
+}
+
 export interface FindAgentsParams {
   capability?: string;
   /** Maximum price in asset units */
