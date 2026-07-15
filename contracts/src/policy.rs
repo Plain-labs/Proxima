@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contractmeta, panic_with_error,
-    token, Address, Env, String, symbol_short,
+    contract, contractimpl, contractmeta, panic_with_error, symbol_short, token, Address, Env,
+    String,
 };
 
 use crate::types::{DataKey, PaymentRecord, SpendingPolicy};
@@ -18,13 +18,13 @@ const LEDGERS_PER_DAY: u32 = 17_280;
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u32)]
 pub enum PolicyError {
-    PolicyNotFound      = 1,
-    NotOwner            = 2,
-    PolicyInactive      = 3,
-    ExceedsPerTxLimit   = 4,
-    ExceedsDailyLimit   = 5,
-    InvalidAmount       = 6,
-    UnauthorizedAgent   = 7,
+    PolicyNotFound = 1,
+    NotOwner = 2,
+    PolicyInactive = 3,
+    ExceedsPerTxLimit = 4,
+    ExceedsDailyLimit = 5,
+    InvalidAmount = 6,
+    UnauthorizedAgent = 7,
     RecipientNotAllowed = 8,
 }
 
@@ -57,7 +57,6 @@ pub struct PolicyContract;
 
 #[contractimpl]
 impl PolicyContract {
-
     /// Create a new spending policy that authorizes an AI agent to make
     /// autonomous payments on behalf of the policy owner, within defined limits.
     ///
@@ -112,8 +111,12 @@ impl PolicyContract {
 
         let key = DataKey::Policy(policy_id);
         env.storage().persistent().set(&key, &policy);
-        env.storage().persistent().extend_ttl(&key, 6_307_200, 6_307_200);
-        env.storage().instance().set(&DataKey::PolicyCount, &policy_id);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, 6_307_200, 6_307_200);
+        env.storage()
+            .instance()
+            .set(&DataKey::PolicyCount, &policy_id);
 
         env.events().publish(
             (symbol_short!("policy"), symbol_short!("create")),
@@ -274,6 +277,9 @@ impl PolicyContract {
 
     /// Return total number of policies created.
     pub fn policy_count(env: Env) -> u64 {
-        env.storage().instance().get(&DataKey::PolicyCount).unwrap_or(0)
+        env.storage()
+            .instance()
+            .get(&DataKey::PolicyCount)
+            .unwrap_or(0)
     }
 }
