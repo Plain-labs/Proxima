@@ -4,8 +4,8 @@ Compiled Soroban WASM outputs for the Proxima contracts, committed here for repr
 
 | File | Description |
 |---|---|
-| `stellarmind_contracts.wasm` | Raw compiled WASM (debug symbols stripped) |
-| `stellarmind_contracts.optimized.wasm` | Optimized WASM — use this for deployment |
+| `proxima_contracts.wasm` | Raw compiled WASM (debug symbols stripped) |
+| `proxima_contracts.optimized.wasm` | Optimized WASM — use this for deployment |
 
 ## Deployed Contract IDs (Testnet)
 
@@ -19,7 +19,7 @@ Compiled Soroban WASM outputs for the Proxima contracts, committed here for repr
 ```bash
 cd contracts
 cargo build --target wasm32-unknown-unknown --release
-stellar contract optimize --wasm target/wasm32-unknown-unknown/release/stellarmind_contracts.wasm
+stellar contract optimize --wasm target/wasm32-unknown-unknown/release/proxima_contracts.wasm
 ```
 
 Then copy the outputs back to this folder.
