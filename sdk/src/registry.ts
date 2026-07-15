@@ -162,6 +162,90 @@ export class RegistryClient {
   }
 
   /**
+   * Update an existing agent's metadata. Must be called by the agent owner.
+   *
+   * @param id      Agent ID to update
+   * @param params  Fields to update (all required — pass current values for fields you don't want to change)
+   * @param keypair Keypair of the agent owner
+   */
+  async updateAgent(
+    id: string,
+    params: {
+      name: string;
+      description: string;
+      capabilities: string[];
+      pricePerCall: string;
+      isActive: boolean;
+      endpointUrl?: string;
+    },
+    keypair: Keypair
+  ): Promise<void> {
+    const account = await this.rpc.getAccount(keypair.publicKey());
+
+    const args = [
+      nativeToScVal(id, { type: 'string' }),
+      nativeToScVal(params.name, { type: 'string' }),
+      nativeToScVal(params.description, { type: 'string' }),
+      nativeToScVal(params.capabilities, { type: 'vec' }),
+      nativeToScVal(toStroops(params.pricePerCall), { type: 'i128' }),
+      nativeToScVal(params.isActive, { type: 'bool' }),
+      nativeToScVal(params.endpointUrl ?? '', { type: 'bytes' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('update_agent', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    prepared.sign(keypair);
+
+    const response = await this.rpc.sendTransaction(prepared);
+    await this._waitForConfirmation(response.hash);
+  }
+
+  /**
+   * Submit a reputation rating for an agent after a completed interaction.
+   * Rating must be between 0 and 10000 (representing 0.00% – 100.00%).
+   *
+   * @param id      Agent ID to rate
+   * @param rating  Score 0–10000
+   * @param keypair Keypair of the caller
+   */
+  async updateReputation(id: string, rating: number, keypair: Keypair): Promise<void> {
+    if (rating < 0 || rating > 10000) {
+      throw new ProximaError(
+        'Rating must be between 0 and 10000',
+        ErrorCodes.CONTRACT_ERROR
+      );
+    }
+
+    const account = await this.rpc.getAccount(keypair.publicKey());
+
+    const args = [
+      nativeToScVal(id, { type: 'string' }),
+      nativeToScVal(rating, { type: 'u32' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('update_reputation', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    prepared.sign(keypair);
+
+    const response = await this.rpc.sendTransaction(prepared);
+    await this._waitForConfirmation(response.hash);
+  }
+
+  /**
    * Deactivate an agent. Must be called by the agent owner.
    */
   async deactivate(id: string, keypair: Keypair): Promise<void> {

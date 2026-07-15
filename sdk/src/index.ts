@@ -50,6 +50,7 @@ export { USDC_ISSUER, toStroops, fromStroops, formatReputation } from './stellar
 export type {
   Agent,
   RegisterAgentParams,
+  UpdateAgentParams,
   FindAgentsParams,
   SpendingPolicy,
   CreatePolicyParams,
