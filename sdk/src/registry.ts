@@ -7,7 +7,7 @@ import {
   xdr,
   Keypair,
 } from '@stellar/stellar-sdk';
-import type { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc as SorobanRpc } from '@stellar/stellar-sdk';
 
 import { ProximaError, ErrorCodes } from './types';
 import type {
@@ -18,7 +18,6 @@ import type {
 import {
   ResolvedConfig,
   createRpcServer,
-  createHorizonServer,
   toStroops,
   fromStroops,
   formatReputation,
@@ -121,10 +120,6 @@ export class RegistryClient {
     const { capability, maxPrice, minReputation, activeOnly = true } = params;
 
     try {
-      // Query Horizon for all AgentRegistered contract events emitted by the
-      // registry contract. Each event payload is the agent ID.
-      const horizon = createHorizonServer(this.config);
-
       // Fetch contract events for the registry — topic1="regist", topic2="agent"
       const eventsUrl =
         `${this.config.horizonUrl}/contract_events` +
@@ -294,90 +289,6 @@ export class RegistryClient {
    * @param id      Agent ID to rate
    * @param rating  Score 0–10000
    * @param keypair Keypair of the caller
-   */
-  async updateReputation(id: string, rating: number, keypair: Keypair): Promise<void> {
-    if (rating < 0 || rating > 10000) {
-      throw new ProximaError(
-        'Rating must be between 0 and 10000',
-        ErrorCodes.CONTRACT_ERROR
-      );
-    }
-
-    const account = await this.rpc.getAccount(keypair.publicKey());
-
-    const args = [
-      nativeToScVal(id, { type: 'string' }),
-      nativeToScVal(rating, { type: 'u32' }),
-    ];
-
-    const tx = new TransactionBuilder(account, {
-      fee: BASE_FEE,
-      networkPassphrase: this.config.networkPassphrase,
-    })
-      .addOperation(this.contract.call('update_reputation', ...args))
-      .setTimeout(30)
-      .build();
-
-    const prepared = await this.rpc.prepareTransaction(tx);
-    prepared.sign(keypair);
-
-    const response = await this.rpc.sendTransaction(prepared);
-    await this._waitForConfirmation(response.hash);
-  }
-
-  /**
-   * Update an existing agent's metadata. Must be called by the original owner.
-   *
-   * @param id          Agent ID to update
-   * @param updates     Fields to update (all required by the contract)
-   * @param keypair     Keypair of the agent owner
-   */
-  async updateAgent(
-    id: string,
-    updates: {
-      name: string;
-      description: string;
-      capabilities: string[];
-      pricePerCall: string;
-      isActive: boolean;
-      endpointUrl?: string;
-    },
-    keypair: Keypair
-  ): Promise<void> {
-    const account = await this.rpc.getAccount(keypair.publicKey());
-
-    const args = [
-      nativeToScVal(id, { type: 'string' }),
-      nativeToScVal(updates.name, { type: 'string' }),
-      nativeToScVal(updates.description, { type: 'string' }),
-      nativeToScVal(updates.capabilities, { type: 'vec' }),
-      nativeToScVal(toStroops(updates.pricePerCall), { type: 'i128' }),
-      nativeToScVal(updates.isActive, { type: 'bool' }),
-      nativeToScVal(updates.endpointUrl ?? '', { type: 'bytes' }),
-    ];
-
-    const tx = new TransactionBuilder(account, {
-      fee: BASE_FEE,
-      networkPassphrase: this.config.networkPassphrase,
-    })
-      .addOperation(this.contract.call('update_agent', ...args))
-      .setTimeout(30)
-      .build();
-
-    const prepared = await this.rpc.prepareTransaction(tx);
-    prepared.sign(keypair);
-
-    const response = await this.rpc.sendTransaction(prepared);
-    await this._waitForConfirmation(response.hash);
-  }
-
-  /**
-   * Submit a reputation rating for an agent after a completed interaction.
-   * Rating must be 0–10000 (representing 0.00%–100.00%).
-   *
-   * @param id      Agent ID
-   * @param rating  Rating value 0–10000
-   * @param keypair Keypair of the caller (any authorized party)
    */
   async updateReputation(id: string, rating: number, keypair: Keypair): Promise<void> {
     if (rating < 0 || rating > 10000) {

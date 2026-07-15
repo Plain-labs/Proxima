@@ -1,4 +1,4 @@
-import { Networks, SorobanRpc, Horizon } from '@stellar/stellar-sdk';
+import { Networks, rpc as SorobanRpc, Horizon } from '@stellar/stellar-sdk';
 import type { Network, ProximaConfig } from './types';
 
 // ─── Network Defaults ────────────────────────────────────────────────────────

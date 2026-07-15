@@ -7,7 +7,7 @@ import {
   xdr,
   Keypair,
 } from '@stellar/stellar-sdk';
-import type { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc as SorobanRpc } from '@stellar/stellar-sdk';
 
 import { ProximaError, ErrorCodes } from './types';
 import type {
