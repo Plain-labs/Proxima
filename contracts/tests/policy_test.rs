@@ -1,9 +1,6 @@
 #![cfg(test)]
 
-use soroban_sdk::{
-    testutils::Address as _,
-    token, vec, Env, String,
-};
+use soroban_sdk::{testutils::Address as _, token, vec, Env, String};
 
 use crate::policy::{PolicyContract, PolicyContractClient};
 

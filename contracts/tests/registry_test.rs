@@ -1,9 +1,6 @@
 #![cfg(test)]
 
-use soroban_sdk::{
-    testutils::Address as _,
-    vec, Bytes, Env, String,
-};
+use soroban_sdk::{testutils::Address as _, vec, Bytes, Env, String};
 
 use crate::registry::{RegistryContract, RegistryContractClient, RegistryError};
 use crate::types::DataKey;
@@ -24,7 +21,8 @@ fn test_register_agent_success() {
         &String::from_str(&env, "test-agent-v1"),
         &String::from_str(&env, "Test Agent"),
         &String::from_str(&env, "A test AI agent for unit testing"),
-        &vec![&env,
+        &vec![
+            &env,
             String::from_str(&env, "text-generation"),
             String::from_str(&env, "summarization"),
         ],
@@ -75,7 +73,8 @@ fn test_register_duplicate_fails() {
             String::from_str(&env, "USDC"),
             issuer,
             Bytes::new(&env),
-        ).into_val(&env),
+        )
+            .into_val(&env),
     );
 
     assert!(result.is_err());

@@ -1,8 +1,8 @@
 #![no_std]
 
-pub mod types;
-pub mod registry;
 pub mod policy;
+pub mod registry;
+pub mod types;
 
-pub use registry::RegistryContract;
 pub use policy::PolicyContract;
+pub use registry::RegistryContract;

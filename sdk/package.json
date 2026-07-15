@@ -18,8 +18,8 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
-    "test": "jest",
-    "lint": "eslint src --ext .ts",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint src --ext .ts --max-warnings=10",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

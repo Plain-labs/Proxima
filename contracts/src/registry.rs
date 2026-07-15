@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contractmeta, panic_with_error, Address, Bytes, Env,
-    String, Vec, symbol_short,
+    contract, contractimpl, contractmeta, panic_with_error, symbol_short, Address, Bytes, Env,
+    String, Vec,
 };
 
 use crate::types::{Agent, DataKey, ProximaEvent};
@@ -16,12 +16,12 @@ contractmeta!(
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u32)]
 pub enum RegistryError {
-    AgentNotFound       = 1,
-    AgentAlreadyExists  = 2,
-    NotOwner            = 3,
-    InvalidPrice        = 4,
-    EmptyCapabilities   = 5,
-    Unauthorized        = 6,
+    AgentNotFound = 1,
+    AgentAlreadyExists = 2,
+    NotOwner = 3,
+    InvalidPrice = 4,
+    EmptyCapabilities = 5,
+    Unauthorized = 6,
 }
 
 impl soroban_sdk::TryFromVal<Env, soroban_sdk::Val> for RegistryError {
@@ -51,7 +51,6 @@ pub struct RegistryContract;
 
 #[contractimpl]
 impl RegistryContract {
-
     /// Register a new AI agent in the Proxima registry.
     ///
     /// # Arguments
@@ -114,11 +113,19 @@ impl RegistryContract {
 
         // Persist with a 1-year TTL (approximately 6,307,200 ledgers at 5s each)
         env.storage().persistent().set(&key, &agent);
-        env.storage().persistent().extend_ttl(&key, 6_307_200, 6_307_200);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, 6_307_200, 6_307_200);
 
         // Increment agent count
-        let count: u64 = env.storage().instance().get(&DataKey::AgentCount).unwrap_or(0);
-        env.storage().instance().set(&DataKey::AgentCount, &(count + 1));
+        let count: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::AgentCount)
+            .unwrap_or(0);
+        env.storage()
+            .instance()
+            .set(&DataKey::AgentCount, &(count + 1));
 
         // Emit event
         env.events().publish(
@@ -177,10 +184,8 @@ impl RegistryContract {
 
         env.storage().persistent().set(&key, &agent);
 
-        env.events().publish(
-            (symbol_short!("update"), symbol_short!("agent")),
-            id,
-        );
+        env.events()
+            .publish((symbol_short!("update"), symbol_short!("agent")), id);
     }
 
     /// Update the reputation score of an agent after a completed interaction.
@@ -233,14 +238,15 @@ impl RegistryContract {
 
         env.storage().persistent().set(&key, &agent);
 
-        env.events().publish(
-            (symbol_short!("deact"), symbol_short!("agent")),
-            id,
-        );
+        env.events()
+            .publish((symbol_short!("deact"), symbol_short!("agent")), id);
     }
 
     /// Return total number of registered agents.
     pub fn agent_count(env: Env) -> u64 {
-        env.storage().instance().get(&DataKey::AgentCount).unwrap_or(0)
+        env.storage()
+            .instance()
+            .get(&DataKey::AgentCount)
+            .unwrap_or(0)
     }
 }

@@ -56,31 +56,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        working-directory: sdk
-        run: npm ci
+        run: bun install
 
       - name: Type check
         working-directory: sdk
-        run: npm run typecheck
+        run: bun run typecheck
 
       - name: Lint
         working-directory: sdk
-        run: npm run lint
+        run: bun run lint
 
       - name: Run tests
         working-directory: sdk
-        run: npm test
+        run: bun run test
 
       - name: Build
         working-directory: sdk
-        run: npm run build
+        run: bun run build
 
   # ── Dashboard ──────────────────────────────────────────────────────────────
   dashboard:
@@ -90,22 +88,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
       - name: Build SDK first
         working-directory: sdk
-        run: npm run build
+        run: bun run build
 
       - name: Build dashboard
         working-directory: dashboard
-        run: npm run build
+        run: bun run build
 
       - name: Upload dashboard build
         uses: actions/upload-artifact@v4

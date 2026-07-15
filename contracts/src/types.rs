@@ -83,13 +83,13 @@ pub struct PaymentRecord {
 /// Events emitted by the contracts (for indexing and the dashboard feed)
 #[contracttype]
 pub enum ProximaEvent {
-    AgentRegistered(String),       // agent_id
-    AgentUpdated(String),          // agent_id
-    AgentDeactivated(String),      // agent_id
-    ReputationUpdated(String, u32),// agent_id, new_score
-    PolicyCreated(u64),            // policy_id
-    PolicyRevoked(u64),            // policy_id
-    PaymentExecuted(u64, i128),    // policy_id, amount
+    AgentRegistered(String),        // agent_id
+    AgentUpdated(String),           // agent_id
+    AgentDeactivated(String),       // agent_id
+    ReputationUpdated(String, u32), // agent_id, new_score
+    PolicyCreated(u64),             // policy_id
+    PolicyRevoked(u64),             // policy_id
+    PaymentExecuted(u64, i128),     // policy_id, amount
 }
 
 /// Storage keys used by both contracts
