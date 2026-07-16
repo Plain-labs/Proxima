@@ -4,6 +4,7 @@ import PolicyManager from "./components/PolicyManager";
 import RegisterAgent from "./components/RegisterAgent";
 import ActivityFeed from "./components/ActivityFeed";
 import WalletConnect from "./components/WalletConnect";
+import ProximaLogo from "./components/ProximaLogo";
 
 type Tab = "explore" | "register" | "policies" | "activity";
 
@@ -84,24 +85,7 @@ export default function App() {
           height: "64px",
         }}>
           {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{
-              width: "36px", height: "36px",
-              background: "linear-gradient(135deg, #00c8ff 0%, #7830ff 100%)",
-              borderRadius: "8px",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "18px", fontWeight: "bold",
-              boxShadow: "0 0 20px rgba(0,200,255,0.4)",
-            }}>P</div>
-            <div>
-              <div style={{ fontSize: "16px", fontWeight: "700", letterSpacing: "0.05em", color: "#fff" }}>
-                PROXIMA
-              </div>
-              <div style={{ fontSize: "10px", color: "rgba(0,200,255,0.7)", letterSpacing: "0.15em" }}>
-                AI AGENT REGISTRY
-              </div>
-            </div>
-          </div>
+          <ProximaLogo size={40} showWordmark={true} />
 
           {/* Nav */}
           <nav style={{ display: "flex", gap: "4px" }}>

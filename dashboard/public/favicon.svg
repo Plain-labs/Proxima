@@ -1,25 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+    <linearGradient id="g" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#00c8ff"/>
-      <stop offset="100%" stop-color="#7830ff"/>
-    </linearGradient>
-    <linearGradient id="letter" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="rgba(255,255,255,0.85)"/>
+      <stop offset="100%" stop-color="#7838ff"/>
     </linearGradient>
   </defs>
 
-  <!-- Background rounded square -->
-  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+  <!-- Background -->
+  <rect width="64" height="64" rx="12" fill="#0a0f1a"/>
 
-  <!-- P letterform -->
+  <!-- Thin border -->
+  <rect width="64" height="64" rx="12" stroke="url(#g)" stroke-width="1.5" opacity="0.3"/>
+
+  <!-- PX monogram, centered -->
   <text
-    x="9"
-    y="24"
-    font-family="'DM Mono', 'Courier New', monospace"
-    font-size="22"
+    x="32" y="42"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="30"
     font-weight="700"
-    fill="url(#letter)"
-  >P</text>
+    fill="url(#g)"
+    text-anchor="middle"
+    letter-spacing="-1"
+  >PX</text>
 </svg>
