@@ -1,108 +1,19 @@
 import { useState } from "react";
+import { useMockAgents, MOCK_AGENTS } from "../hooks/useRegistry";
 
-interface Agent {
-  id: string;
-  name: string;
-  description: string;
-  capabilities: string[];
-  priceDisplay: string;
-  reputationDisplay: string;
-  reputation: number;
-  totalCalls: number;
-  isActive: boolean;
-  owner: string;
-  registeredAt: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface AgentCardProps {
+  agent: ReturnType<typeof useMockAgents>[number];
+  onCreatePolicy: (agentId: string, agentName: string) => void;
 }
 
-// Mock data — in production this comes from on-chain + indexer
-const MOCK_AGENTS: Agent[] = [
-  {
-    id: "gpt-inference-v2",
-    name: "GPT Inference Relay",
-    description: "High-throughput text generation and completion via OpenAI-compatible API. Supports streaming responses.",
-    capabilities: ["text-generation", "completion", "summarization"],
-    priceDisplay: "0.0100000 USDC",
-    reputationDisplay: "94.20%",
-    reputation: 9420,
-    totalCalls: 48291,
-    isActive: true,
-    owner: "GDXK...A3MN",
-    registeredAt: "2026-04-12",
-  },
-  {
-    id: "flux-image-gen-v1",
-    name: "Flux Image Generator",
-    description: "State-of-the-art image generation. Supports 1:1, 16:9, and portrait formats. 3–5s generation time.",
-    capabilities: ["image-generation", "text-to-image"],
-    priceDisplay: "0.0500000 USDC",
-    reputationDisplay: "91.75%",
-    reputation: 9175,
-    totalCalls: 12840,
-    isActive: true,
-    owner: "GBKR...2XPL",
-    registeredAt: "2026-03-28",
-  },
-  {
-    id: "web-search-agent-v3",
-    name: "Web Search Agent",
-    description: "Real-time web search with structured JSON output. Returns top 10 results with snippets and metadata.",
-    capabilities: ["web-search", "data-retrieval"],
-    priceDisplay: "0.0050000 USDC",
-    reputationDisplay: "88.40%",
-    reputation: 8840,
-    totalCalls: 93102,
-    isActive: true,
-    owner: "GCTP...7QMN",
-    registeredAt: "2026-02-15",
-  },
-  {
-    id: "whisper-transcription-v1",
-    name: "Whisper Transcription",
-    description: "Audio-to-text transcription using Whisper Large v3. Supports 50+ languages, returns timestamped output.",
-    capabilities: ["speech-to-text", "transcription", "translation"],
-    priceDisplay: "0.0200000 USDC",
-    reputationDisplay: "96.10%",
-    reputation: 9610,
-    totalCalls: 7421,
-    isActive: true,
-    owner: "GAMT...5PQR",
-    registeredAt: "2026-05-01",
-  },
-  {
-    id: "code-executor-sandbox-v2",
-    name: "Code Executor Sandbox",
-    description: "Secure sandboxed Python/JS code execution. Returns stdout, stderr, and exit codes. 30s timeout.",
-    capabilities: ["code-execution", "python", "javascript"],
-    priceDisplay: "0.0150000 USDC",
-    reputationDisplay: "79.30%",
-    reputation: 7930,
-    totalCalls: 5209,
-    isActive: true,
-    owner: "GBMC...1ZXA",
-    registeredAt: "2026-04-20",
-  },
-  {
-    id: "data-enrichment-v1",
-    name: "Data Enrichment Agent",
-    description: "Enrich company/person data from multiple public sources. Returns structured JSON with confidence scores.",
-    capabilities: ["data-enrichment", "research", "structured-output"],
-    priceDisplay: "0.0300000 USDC",
-    reputationDisplay: "85.60%",
-    reputation: 8560,
-    totalCalls: 3814,
-    isActive: false,
-    owner: "GDBR...9YKL",
-    registeredAt: "2026-03-10",
-  },
-];
-
-const ALL_CAPABILITIES = Array.from(
-  new Set(MOCK_AGENTS.flatMap((a) => a.capabilities))
-).sort();
+// ─── ReputationBar ────────────────────────────────────────────────────────────
 
 function ReputationBar({ score }: { score: number }) {
   const pct = score / 100;
-  const color = pct >= 90 ? "#00ff78" : pct >= 75 ? "#00c8ff" : pct >= 60 ? "#ffb830" : "#ff4060";
+  const color =
+    pct >= 90 ? "#00ff78" : pct >= 75 ? "#00c8ff" : pct >= 60 ? "#ffb830" : "#ff4060";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
       <div style={{
@@ -125,7 +36,9 @@ function ReputationBar({ score }: { score: number }) {
   );
 }
 
-function AgentCard({ agent }: { agent: Agent }) {
+// ─── AgentCard ────────────────────────────────────────────────────────────────
+
+function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -153,7 +66,7 @@ function AgentCard({ agent }: { agent: Agent }) {
           : "rgba(255,255,255,0.06)";
       }}
     >
-      {/* Status stripe */}
+      {/* Active/inactive status stripe */}
       <div style={{
         position: "absolute", top: 0, left: 0,
         width: "3px", height: "100%",
@@ -180,7 +93,10 @@ function AgentCard({ agent }: { agent: Agent }) {
                 }}>INACTIVE</span>
               )}
             </div>
-            <div style={{ fontSize: "10px", color: "rgba(0,200,255,0.5)", marginTop: "2px", letterSpacing: "0.05em" }}>
+            <div style={{
+              fontSize: "10px", color: "rgba(0,200,255,0.5)",
+              marginTop: "2px", letterSpacing: "0.05em",
+            }}>
               {agent.id}
             </div>
           </div>
@@ -219,7 +135,10 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {/* Reputation bar */}
         <div style={{ marginTop: "14px" }}>
-          <div style={{ fontSize: "10px", color: "rgba(226,232,240,0.3)", marginBottom: "4px", letterSpacing: "0.1em" }}>
+          <div style={{
+            fontSize: "10px", color: "rgba(226,232,240,0.3)",
+            marginBottom: "4px", letterSpacing: "0.1em",
+          }}>
             REPUTATION
           </div>
           <ReputationBar score={agent.reputation} />
@@ -241,28 +160,75 @@ function AgentCard({ agent }: { agent: Agent }) {
                 { label: "OWNER", value: agent.owner },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <div style={{ fontSize: "9px", color: "rgba(226,232,240,0.3)", letterSpacing: "0.12em" }}>{label}</div>
-                  <div style={{ fontSize: "12px", color: "#e2e8f0", marginTop: "4px" }}>{value}</div>
+                  <div style={{
+                    fontSize: "9px", color: "rgba(226,232,240,0.3)",
+                    letterSpacing: "0.12em",
+                  }}>
+                    {label}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#e2e8f0", marginTop: "4px" }}>
+                    {value}
+                  </div>
                 </div>
               ))}
             </div>
-            <button
-              onClick={(e) => { e.stopPropagation(); }}
-              style={{
-                marginTop: "14px",
-                padding: "8px 16px",
-                background: "linear-gradient(135deg, rgba(0,200,255,0.15), rgba(120,48,255,0.15))",
-                border: "1px solid rgba(0,200,255,0.3)",
-                borderRadius: "6px",
-                color: "#00c8ff",
-                cursor: "pointer",
-                fontSize: "11px",
-                fontFamily: "inherit",
-                letterSpacing: "0.08em",
-              }}
-            >
-              CREATE SPENDING POLICY →
-            </button>
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+              {agent.isActive && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreatePolicy(agent.id, agent.name);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px 16px",
+                    background: "linear-gradient(135deg, rgba(0,200,255,0.15), rgba(120,48,255,0.15))",
+                    border: "1px solid rgba(0,200,255,0.3)",
+                    borderRadius: "6px",
+                    color: "#00c8ff",
+                    cursor: "pointer",
+                    fontSize: "11px",
+                    fontFamily: "inherit",
+                    letterSpacing: "0.08em",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "linear-gradient(135deg, rgba(0,200,255,0.25), rgba(120,48,255,0.25))";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "linear-gradient(135deg, rgba(0,200,255,0.15), rgba(120,48,255,0.15))";
+                  }}
+                >
+                  🔐 CREATE SPENDING POLICY →
+                </button>
+              )}
+              <a
+                href={`https://stellar.expert/explorer/testnet/contract/${agent.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  padding: "8px 14px",
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "6px",
+                  color: "rgba(226,232,240,0.35)",
+                  fontSize: "11px",
+                  fontFamily: "inherit",
+                  letterSpacing: "0.06em",
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                ↗ EXPLORER
+              </a>
+            </div>
           </div>
         )}
       </div>
@@ -270,32 +236,46 @@ function AgentCard({ agent }: { agent: Agent }) {
   );
 }
 
-export default function AgentExplorer() {
+// ─── AgentExplorer ────────────────────────────────────────────────────────────
+
+interface AgentExplorerProps {
+  /** Called when user clicks "Create Spending Policy" on an agent card */
+  onCreatePolicy?: (agentId: string, agentName: string) => void;
+}
+
+export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
   const [search, setSearch] = useState("");
   const [filterCap, setFilterCap] = useState("");
   const [filterActive, setFilterActive] = useState(false);
   const [sortBy, setSortBy] = useState<"reputation" | "calls" | "price">("reputation");
 
-  const filtered = MOCK_AGENTS
-    .filter((a) => {
-      if (filterActive && !a.isActive) return false;
-      if (filterCap && !a.capabilities.includes(filterCap)) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        return (
-          a.name.toLowerCase().includes(q) ||
-          a.description.toLowerCase().includes(q) ||
-          a.capabilities.some((c) => c.includes(q))
-        );
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === "reputation") return b.reputation - a.reputation;
-      if (sortBy === "calls") return b.totalCalls - a.totalCalls;
-      if (sortBy === "price") return parseFloat(a.priceDisplay) - parseFloat(b.priceDisplay);
-      return 0;
-    });
+  // Use the hook — swappable for live on-chain data once indexer is live
+  const agents = useMockAgents({
+    capability: filterCap || undefined,
+    activeOnly: filterActive,
+    sortBy,
+  });
+
+  // Apply text search on top of hook filtering
+  const filtered = agents.filter((a) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      a.name.toLowerCase().includes(q) ||
+      a.description.toLowerCase().includes(q) ||
+      a.capabilities.some((c) => c.includes(q))
+    );
+  });
+
+  const allCapabilities = Array.from(
+    new Set(MOCK_AGENTS.flatMap((a) => a.capabilities))
+  ).sort();
+
+  const handleCreatePolicy = (agentId: string, agentName: string) => {
+    if (onCreatePolicy) {
+      onCreatePolicy(agentId, agentName);
+    }
+  };
 
   return (
     <div>
@@ -310,10 +290,7 @@ export default function AgentExplorer() {
       </div>
 
       {/* Filter bar */}
-      <div style={{
-        display: "flex", gap: "12px", marginBottom: "24px",
-        flexWrap: "wrap",
-      }}>
+      <div style={{ display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
         <input
           placeholder="Search agents..."
           value={search}
@@ -324,10 +301,8 @@ export default function AgentExplorer() {
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: "6px",
-            color: "#e2e8f0",
-            fontSize: "12px",
-            fontFamily: "inherit",
-            outline: "none",
+            color: "#e2e8f0", fontSize: "12px",
+            fontFamily: "inherit", outline: "none",
           }}
         />
 
@@ -340,31 +315,27 @@ export default function AgentExplorer() {
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: "6px",
             color: filterCap ? "#00c8ff" : "rgba(226,232,240,0.4)",
-            fontSize: "12px",
-            fontFamily: "inherit",
-            cursor: "pointer",
-            outline: "none",
+            fontSize: "12px", fontFamily: "inherit",
+            cursor: "pointer", outline: "none",
           }}
         >
           <option value="">All Capabilities</option>
-          {ALL_CAPABILITIES.map((cap) => (
+          {allCapabilities.map((cap) => (
             <option key={cap} value={cap} style={{ background: "#0a1520" }}>{cap}</option>
           ))}
         </select>
 
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
           style={{
             padding: "10px 14px",
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: "6px",
             color: "rgba(226,232,240,0.6)",
-            fontSize: "12px",
-            fontFamily: "inherit",
-            cursor: "pointer",
-            outline: "none",
+            fontSize: "12px", fontFamily: "inherit",
+            cursor: "pointer", outline: "none",
           }}
         >
           <option value="reputation" style={{ background: "#0a1520" }}>Sort: Reputation</option>
@@ -380,10 +351,8 @@ export default function AgentExplorer() {
             border: filterActive ? "1px solid rgba(0,255,120,0.3)" : "1px solid rgba(255,255,255,0.1)",
             borderRadius: "6px",
             color: filterActive ? "#00ff78" : "rgba(226,232,240,0.4)",
-            cursor: "pointer",
-            fontSize: "12px",
-            fontFamily: "inherit",
-            letterSpacing: "0.05em",
+            cursor: "pointer", fontSize: "12px",
+            fontFamily: "inherit", letterSpacing: "0.05em",
           }}
         >
           {filterActive ? "● ACTIVE ONLY" : "○ ACTIVE ONLY"}
@@ -405,7 +374,11 @@ export default function AgentExplorer() {
         gap: "12px",
       }}>
         {filtered.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} />
+          <AgentCard
+            key={agent.id}
+            agent={agent}
+            onCreatePolicy={handleCreatePolicy}
+          />
         ))}
       </div>
 

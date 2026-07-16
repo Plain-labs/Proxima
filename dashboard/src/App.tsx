@@ -6,6 +6,12 @@ import ActivityFeed from "./components/ActivityFeed";
 
 type Tab = "explore" | "register" | "policies" | "activity";
 
+/** Passed from AgentExplorer → App → PolicyManager to pre-fill the create form */
+export interface PolicyPrefill {
+  agentId: string;
+  agentName: string;
+}
+
 const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "explore", label: "Agent Explorer", icon: "⚡" },
   { id: "register", label: "Register Agent", icon: "＋" },
@@ -23,6 +29,13 @@ const STATS = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("explore");
+  const [policyPrefill, setPolicyPrefill] = useState<PolicyPrefill | null>(null);
+
+  /** Navigate to Policy Manager with agent pre-filled */
+  const handleCreatePolicy = (agentId: string, agentName: string) => {
+    setPolicyPrefill({ agentId, agentName });
+    setActiveTab("policies");
+  };
 
   return (
     <div style={{
@@ -179,9 +192,14 @@ export default function App() {
         maxWidth: "1400px", margin: "0 auto",
         padding: "2rem",
       }}>
-        {activeTab === "explore" && <AgentExplorer />}
+        {activeTab === "explore" && <AgentExplorer onCreatePolicy={handleCreatePolicy} />}
         {activeTab === "register" && <RegisterAgent />}
-        {activeTab === "policies" && <PolicyManager />}
+        {activeTab === "policies" && (
+          <PolicyManager
+            prefill={policyPrefill}
+            onPrefillConsumed={() => setPolicyPrefill(null)}
+          />
+        )}
         {activeTab === "activity" && <ActivityFeed />}
       </main>
 
