@@ -3,6 +3,7 @@ import AgentExplorer from "./components/AgentExplorer";
 import PolicyManager from "./components/PolicyManager";
 import RegisterAgent from "./components/RegisterAgent";
 import ActivityFeed from "./components/ActivityFeed";
+import WalletConnect from "./components/WalletConnect";
 
 type Tab = "explore" | "register" | "policies" | "activity";
 
@@ -132,25 +133,28 @@ export default function App() {
             ))}
           </nav>
 
-          {/* Network badge */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            padding: "6px 14px",
-            background: "rgba(0,255,120,0.08)",
-            border: "1px solid rgba(0,255,120,0.2)",
-            borderRadius: "20px",
-            fontSize: "11px",
-            color: "#00ff78",
-            letterSpacing: "0.1em",
-          }}>
-            <span style={{
-              width: "6px", height: "6px",
-              background: "#00ff78",
-              borderRadius: "50%",
-              boxShadow: "0 0 8px #00ff78",
-              animation: "pulse 2s infinite",
-            }} />
-            STELLAR TESTNET
+          {/* Network badge + wallet */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: "8px",
+              padding: "6px 14px",
+              background: "rgba(0,255,120,0.08)",
+              border: "1px solid rgba(0,255,120,0.2)",
+              borderRadius: "20px",
+              fontSize: "11px",
+              color: "#00ff78",
+              letterSpacing: "0.1em",
+            }}>
+              <span style={{
+                width: "6px", height: "6px",
+                background: "#00ff78",
+                borderRadius: "50%",
+                boxShadow: "0 0 8px #00ff78",
+                animation: "pulse 2s infinite",
+              }} />
+              STELLAR TESTNET
+            </div>
+            <WalletConnect />
           </div>
         </div>
       </header>
