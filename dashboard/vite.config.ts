@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -8,6 +9,14 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+
+    resolve: {
+      alias: {
+        // Point @proxima/sdk at the local SDK source so the build
+        // doesn't require a pre-built dist/ from the SDK package.
+        '@proxima/sdk': resolve(__dirname, '../sdk/src/index.ts'),
+      },
+    },
 
     // Make VITE_* env vars available at build time
     define: {

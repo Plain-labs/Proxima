@@ -64,7 +64,7 @@ export function usePolicyAuthorization(
     setLoading(true);
     getProxima()
       .policy.isAuthorized(policyId, agentAddress)
-      .then((result) => { if (!cancelled) setAuthorized(result); })
+      .then((result: boolean) => { if (!cancelled) setAuthorized(result); })
       .catch(() => { if (!cancelled) setAuthorized(false); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -131,17 +131,15 @@ export function useRemainingAllowance(policyId: bigint | null): UseAllowanceStat
  * Return total number of policies ever created on-chain.
  */
 export function usePolicyCount(): { count: bigint; loading: boolean } {
-  const [count, setCount] = useState<bigint>(0n);
+  const [count] = useState<bigint>(0n);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     getProxima()
-      .policy.getPolicy // trigger init
-    getProxima()
-      // policy_count isn't directly on PolicyClient yet — derive from contract
-      .registry.agentCount() // placeholder until policy_count is added
+      // policy_count isn't directly on PolicyClient yet — placeholder until added
+      .registry.agentCount()
       .then(() => {})
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
