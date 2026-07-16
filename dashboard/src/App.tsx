@@ -3,8 +3,15 @@ import AgentExplorer from "./components/AgentExplorer";
 import PolicyManager from "./components/PolicyManager";
 import RegisterAgent from "./components/RegisterAgent";
 import ActivityFeed from "./components/ActivityFeed";
+import WalletConnect from "./components/WalletConnect";
 
 type Tab = "explore" | "register" | "policies" | "activity";
+
+/** Passed from AgentExplorer → App → PolicyManager to pre-fill the create form */
+export interface PolicyPrefill {
+  agentId: string;
+  agentName: string;
+}
 
 const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "explore", label: "Agent Explorer", icon: "⚡" },
@@ -23,6 +30,13 @@ const STATS = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("explore");
+  const [policyPrefill, setPolicyPrefill] = useState<PolicyPrefill | null>(null);
+
+  /** Navigate to Policy Manager with agent pre-filled */
+  const handleCreatePolicy = (agentId: string, agentName: string) => {
+    setPolicyPrefill({ agentId, agentName });
+    setActiveTab("policies");
+  };
 
   return (
     <div style={{
@@ -119,25 +133,28 @@ export default function App() {
             ))}
           </nav>
 
-          {/* Network badge */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            padding: "6px 14px",
-            background: "rgba(0,255,120,0.08)",
-            border: "1px solid rgba(0,255,120,0.2)",
-            borderRadius: "20px",
-            fontSize: "11px",
-            color: "#00ff78",
-            letterSpacing: "0.1em",
-          }}>
-            <span style={{
-              width: "6px", height: "6px",
-              background: "#00ff78",
-              borderRadius: "50%",
-              boxShadow: "0 0 8px #00ff78",
-              animation: "pulse 2s infinite",
-            }} />
-            STELLAR TESTNET
+          {/* Network badge + wallet */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: "8px",
+              padding: "6px 14px",
+              background: "rgba(0,255,120,0.08)",
+              border: "1px solid rgba(0,255,120,0.2)",
+              borderRadius: "20px",
+              fontSize: "11px",
+              color: "#00ff78",
+              letterSpacing: "0.1em",
+            }}>
+              <span style={{
+                width: "6px", height: "6px",
+                background: "#00ff78",
+                borderRadius: "50%",
+                boxShadow: "0 0 8px #00ff78",
+                animation: "pulse 2s infinite",
+              }} />
+              STELLAR TESTNET
+            </div>
+            <WalletConnect />
           </div>
         </div>
       </header>
@@ -179,9 +196,14 @@ export default function App() {
         maxWidth: "1400px", margin: "0 auto",
         padding: "2rem",
       }}>
-        {activeTab === "explore" && <AgentExplorer />}
+        {activeTab === "explore" && <AgentExplorer onCreatePolicy={handleCreatePolicy} />}
         {activeTab === "register" && <RegisterAgent />}
-        {activeTab === "policies" && <PolicyManager />}
+        {activeTab === "policies" && (
+          <PolicyManager
+            prefill={policyPrefill}
+            onPrefillConsumed={() => setPolicyPrefill(null)}
+          />
+        )}
         {activeTab === "activity" && <ActivityFeed />}
       </main>
 

@@ -196,23 +196,23 @@ Proxima/
 
 ### Phase 1 — Foundation (Months 1–2)
 - [x] Project scaffold & architecture
-- [ ] Agent Registry Soroban contract (Rust) + tests
-- [ ] Spending Policy Soroban contract (Rust) + tests
+- [x] Agent Registry Soroban contract (Rust) + tests
+- [x] Spending Policy Soroban contract (Rust) + tests
 - [ ] Deploy both contracts to Stellar Testnet
-- [ ] TypeScript SDK core (registry + policy clients)
-- [ ] SDK unit tests
+- [x] TypeScript SDK core (registry + policy clients)
+- [x] SDK unit tests
 
 ### Phase 2 — Explorer (Months 3–4)
-- [ ] React dashboard — Agent Explorer UI
-- [ ] React dashboard — Policy Manager UI
-- [ ] Real-time Activity Feed (Stellar event streaming)
+- [x] React dashboard — Agent Explorer UI
+- [x] React dashboard — Policy Manager UI
+- [x] Real-time Activity Feed (Stellar event streaming)
 - [ ] Freighter wallet integration
-- [ ] SDK usage examples (2 complete examples)
+- [x] SDK usage examples (2 complete examples)
 
 ### Phase 3 — Integration & Polish (Month 5)
 - [ ] x402 payment flow integration demo
 - [ ] Mainnet deployment
-- [ ] Full documentation site
+- [x] Full documentation site
 - [ ] Security review
 - [ ] Video demo + launch post
 

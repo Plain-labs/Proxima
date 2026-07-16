@@ -46,7 +46,7 @@ export class Proxima {
 // Named exports for convenience
 export { RegistryClient } from './registry';
 export { PolicyClient } from './policy';
-export { USDC_ISSUER, toStroops, fromStroops, formatReputation } from './stellar';
+export { USDC_ISSUER, toStroops, fromStroops, formatReputation, resolveConfig } from './stellar';
 export type {
   Agent,
   RegisterAgentParams,

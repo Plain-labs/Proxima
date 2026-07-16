@@ -1,66 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { MOCK_POLICIES, type MockPolicy } from "../hooks/usePolicy";
 
-interface Policy {
-  id: string;
-  agent: string;
-  agentName: string;
-  maxPerTx: string;
-  dailyLimit: string;
-  spentToday: string;
-  remainingToday: string;
-  totalSpent: string;
-  asset: string;
-  isActive: boolean;
-  createdAt: string;
-  txCount: number;
+interface PolicyManagerProps {
+  /** Pre-fill the create form from the Agent Explorer */
+  prefill?: { agentId: string; agentName: string } | null;
+  /** Called once the prefill data has been consumed and the form is shown */
+  onPrefillConsumed?: () => void;
 }
 
-const MOCK_POLICIES: Policy[] = [
-  {
-    id: "POL-001",
-    agent: "GBKR...2XPL",
-    agentName: "Flux Image Generator",
-    maxPerTx: "0.05 USDC",
-    dailyLimit: "5.00 USDC",
-    spentToday: "1.25 USDC",
-    remainingToday: "3.75 USDC",
-    totalSpent: "48.20 USDC",
-    asset: "USDC",
-    isActive: true,
-    createdAt: "2026-05-10",
-    txCount: 964,
-  },
-  {
-    id: "POL-002",
-    agent: "GCTP...7QMN",
-    agentName: "Web Search Agent",
-    maxPerTx: "0.01 USDC",
-    dailyLimit: "10.00 USDC",
-    spentToday: "4.87 USDC",
-    remainingToday: "5.13 USDC",
-    totalSpent: "213.40 USDC",
-    asset: "USDC",
-    isActive: true,
-    createdAt: "2026-04-02",
-    txCount: 42680,
-  },
-  {
-    id: "POL-003",
-    agent: "GAMT...5PQR",
-    agentName: "Whisper Transcription",
-    maxPerTx: "0.02 USDC",
-    dailyLimit: "2.00 USDC",
-    spentToday: "0.00 USDC",
-    remainingToday: "2.00 USDC",
-    totalSpent: "8.40 USDC",
-    asset: "USDC",
-    isActive: false,
-    createdAt: "2026-05-28",
-    txCount: 420,
-  },
-];
-
-function PolicyCard({ policy, onRevoke }: { policy: Policy; onRevoke: (id: string) => void }) {
+function PolicyCard({ policy, onRevoke }: { policy: MockPolicy; onRevoke: (id: string) => void }) {
   const spentPct = parseFloat(policy.spentToday) / parseFloat(policy.dailyLimit) * 100;
   const barColor = spentPct > 80 ? "#ff6440" : spentPct > 50 ? "#ffb830" : "#00c8ff";
 
@@ -163,9 +111,18 @@ function PolicyCard({ policy, onRevoke }: { policy: Policy; onRevoke: (id: strin
   );
 }
 
-function CreatePolicyForm({ onClose }: { onClose: () => void }) {
+function CreatePolicyForm({
+  onClose,
+  prefill,
+}: {
+  onClose: () => void;
+  prefill?: { agentId: string; agentName: string } | null;
+}) {
   const [form, setForm] = useState({
-    agent: "", maxPerTx: "", dailyLimit: "", asset: "USDC",
+    agent: prefill?.agentId ?? "",
+    maxPerTx: "",
+    dailyLimit: "",
+    asset: "USDC",
   });
 
   return (
@@ -189,7 +146,7 @@ function CreatePolicyForm({ onClose }: { onClose: () => void }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
         {[
-          { key: "agent", label: "AGENT ADDRESS", placeholder: "GBKR...2XPL", full: true },
+          { key: "agent", label: prefill ? `AGENT ADDRESS  (pre-filled: ${prefill.agentName})` : "AGENT ADDRESS", placeholder: "GBKR...2XPL", full: true },
           { key: "maxPerTx", label: "MAX PER TRANSACTION", placeholder: "0.50" },
           { key: "dailyLimit", label: "DAILY LIMIT", placeholder: "10.00" },
         ].map(({ key, label, placeholder, full }) => (
@@ -275,9 +232,17 @@ function CreatePolicyForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function PolicyManager() {
+export default function PolicyManager({ prefill, onPrefillConsumed }: PolicyManagerProps) {
   const [policies, setPolicies] = useState(MOCK_POLICIES);
   const [showForm, setShowForm] = useState(false);
+
+  // Auto-open the create form when navigating here from AgentExplorer
+  useEffect(() => {
+    if (prefill) {
+      setShowForm(true);
+      onPrefillConsumed?.();
+    }
+  }, [prefill, onPrefillConsumed]);
 
   const handleRevoke = (id: string) => {
     setPolicies((prev) =>
@@ -340,7 +305,7 @@ export default function PolicyManager() {
         ))}
       </div>
 
-      {showForm && <CreatePolicyForm onClose={() => setShowForm(false)} />}
+      {showForm && <CreatePolicyForm onClose={() => setShowForm(false)} prefill={prefill} />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         {policies.map((policy) => (

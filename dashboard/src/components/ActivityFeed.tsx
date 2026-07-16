@@ -1,93 +1,123 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useEventFeed, type FeedEvent, type EventType } from "../hooks/useEventFeed";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ActivityFeed
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface FeedEvent {
-  id: string;
-  type: "payment" | "register" | "policy" | "reputation" | "deactivate";
-  title: string;
-  detail: string;
-  amount?: string;
-  time: string;
-  txHash: string;
-}
-
-const BASE_EVENTS: FeedEvent[] = [
-  { id: "1", type: "payment", title: "Payment Executed", detail: "POL-002 · Web Search Agent → GCTP...8MNQ", amount: "0.0050 USDC", time: "2s ago", txHash: "e8f2a1...d4c9" },
-  { id: "2", type: "payment", title: "Payment Executed", detail: "POL-001 · Flux Image Generator → GABC...1ZXP", amount: "0.0500 USDC", time: "8s ago", txHash: "a9b3c2...f1e8" },
-  { id: "3", type: "register", title: "Agent Registered", detail: "llama-3-inference-v1 · by GDXK...A3MN", time: "1m ago", txHash: "3d7e91...b2a4" },
-  { id: "4", type: "reputation", title: "Reputation Updated", detail: "whisper-transcription-v1 → 96.10%", time: "2m ago", txHash: "7c4f12...e9d3" },
-  { id: "5", type: "policy", title: "Policy Created", detail: "POL-004 · Daily limit: 20 USDC · Agent: GAMT...5PQR", time: "4m ago", txHash: "2b8e45...a7f1" },
-  { id: "6", type: "payment", title: "Payment Executed", detail: "POL-001 · Flux Image Generator → GBKR...9MXQ", amount: "0.0500 USDC", time: "5m ago", txHash: "9f3c71...d2b8" },
-  { id: "7", type: "payment", title: "Payment Executed", detail: "POL-002 · Web Search Agent → GCTP...3LNM", amount: "0.0050 USDC", time: "5m ago", txHash: "4a7d23...c6e9" },
-  { id: "8", type: "register", title: "Agent Registered", detail: "stable-diffusion-xl-v2 · by GFRM...2QTL", time: "12m ago", txHash: "1e9b56...f4a2" },
-  { id: "9", type: "policy", title: "Policy Revoked", detail: "POL-003 revoked by owner GCTP...7QMN", time: "18m ago", txHash: "8d2c34...b1f7" },
-  { id: "10", type: "deactivate", title: "Agent Deactivated", detail: "data-enrichment-v1 · owner GDBR...9YKL", time: "32m ago", txHash: "5f1a89...e3c4" },
-];
-
-const EVENT_COLORS: Record<FeedEvent["type"], string> = {
+const EVENT_COLORS: Record<EventType, string> = {
   payment: "#00c8ff",
   register: "#00ff78",
-  policy: "#7830ff",
+  policy_create: "#7830ff",
+  policy_revoke: "#ff6440",
   reputation: "#ffb830",
   deactivate: "#ff6440",
 };
 
-const EVENT_ICONS: Record<FeedEvent["type"], string> = {
+const EVENT_ICONS: Record<EventType, string> = {
   payment: "💸",
   register: "⚡",
-  policy: "🔐",
+  policy_create: "🔐",
+  policy_revoke: "🔓",
   reputation: "⭐",
   deactivate: "○",
 };
 
-export function ActivityFeed() {
-  const [events, setEvents] = useState(BASE_EVENTS);
-  const [paused, setPaused] = useState(false);
+function EventRow({ event, isLatest }: { event: FeedEvent; isLatest: boolean }) {
+  const color = EVENT_COLORS[event.type];
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: "14px",
+      padding: "12px 16px",
+      background: isLatest ? "rgba(0,200,255,0.04)" : "rgba(255,255,255,0.02)",
+      border: `1px solid ${isLatest ? "rgba(0,200,255,0.15)" : "rgba(255,255,255,0.04)"}`,
+      borderRadius: "7px",
+      animation: isLatest ? "fadeIn 0.4s ease" : "none",
+      transition: "all 0.3s",
+    }}>
+      <span style={{ fontSize: "14px", minWidth: "20px" }}>{EVENT_ICONS[event.type]}</span>
+      <div style={{
+        width: "6px", height: "6px", borderRadius: "50%",
+        background: color,
+        boxShadow: isLatest ? `0 0 8px ${color}` : "none",
+        flexShrink: 0,
+      }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "12px", fontWeight: "600", color }}>{event.title}</span>
+          {event.amount && (
+            <span style={{
+              fontSize: "11px", padding: "1px 7px",
+              background: "rgba(0,255,120,0.08)",
+              border: "1px solid rgba(0,255,120,0.15)",
+              borderRadius: "4px", color: "#00ff78",
+            }}>
+              {event.amount}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: "11px", color: "rgba(226,232,240,0.35)", marginTop: "2px" }}>
+          {event.detail}
+        </div>
+      </div>
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <div style={{ fontSize: "10px", color: "rgba(226,232,240,0.25)" }}>{event.timestamp}</div>
+        <div style={{
+          fontSize: "10px", color: "rgba(0,200,255,0.3)",
+          marginTop: "2px", fontFamily: "monospace",
+        }}>
+          {event.txHash}
+        </div>
+        {event.ledger > 0 && (
+          <div style={{ fontSize: "9px", color: "rgba(226,232,240,0.15)", marginTop: "1px" }}>
+            ledger {event.ledger.toLocaleString()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    if (paused) return;
-    const interval = setInterval(() => {
-      const newEvent: FeedEvent = {
-        id: Date.now().toString(),
-        type: "payment",
-        title: "Payment Executed",
-        detail: `POL-00${Math.floor(Math.random() * 3) + 1} · Auto-payment → G${Math.random().toString(36).slice(2, 6).toUpperCase()}...${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
-        amount: `${(Math.random() * 0.05 + 0.005).toFixed(4)} USDC`,
-        time: "just now",
-        txHash: `${Math.random().toString(16).slice(2, 8)}...${Math.random().toString(16).slice(2, 6)}`,
-      };
-      setEvents((prev) => [newEvent, ...prev.slice(0, 19)]);
-    }, 3500);
-    return () => clearInterval(interval);
-  }, [paused]);
+export function ActivityFeed() {
+  const [paused, setPaused] = useState(false);
+  const { events, live, usingSimulation } = useEventFeed({ paused, maxEvents: 20 });
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+      <div style={{
+        display: "flex", justifyContent: "space-between",
+        alignItems: "flex-start", marginBottom: "24px",
+      }}>
         <div>
           <h1 style={{ fontSize: "24px", fontWeight: "700", color: "#fff", letterSpacing: "-0.02em" }}>
             Activity Feed
           </h1>
           <p style={{ fontSize: "12px", color: "rgba(226,232,240,0.4)", marginTop: "6px" }}>
-            Real-time stream of on-chain events from the Proxima contracts.
+            {usingSimulation
+              ? "Simulated event stream (connect to testnet for live data)."
+              : "Real-time on-chain events from the Proxima contracts."}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#00ff78" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px" }}>
             <span style={{
               width: "6px", height: "6px",
-              background: paused ? "rgba(255,255,255,0.2)" : "#00ff78",
+              background: paused ? "rgba(255,255,255,0.2)" : live ? "#00ff78" : "#ffb830",
               borderRadius: "50%",
-              boxShadow: paused ? "none" : "0 0 8px #00ff78",
-              animation: paused ? "none" : "pulse 2s infinite",
+              boxShadow: (!paused && live) ? "0 0 8px #00ff78" : "none",
+              animation: (!paused && live) ? "pulse 2s infinite" : "none",
             }} />
-            {paused ? "PAUSED" : "LIVE"}
+            <span style={{ color: paused ? "rgba(226,232,240,0.3)" : live ? "#00ff78" : "#ffb830" }}>
+              {paused ? "PAUSED" : live ? "LIVE" : "CONNECTING..."}
+            </span>
+            {usingSimulation && !paused && (
+              <span style={{ fontSize: "9px", color: "rgba(255,184,48,0.5)", marginLeft: "2px" }}>
+                (SIM)
+              </span>
+            )}
           </div>
           <button
-            onClick={() => setPaused(!paused)}
+            onClick={() => setPaused((p) => !p)}
             style={{
               padding: "7px 14px",
               background: "rgba(255,255,255,0.04)",
@@ -103,56 +133,19 @@ export function ActivityFeed() {
         </div>
       </div>
 
+      {events.length === 0 && (
+        <div style={{
+          textAlign: "center", padding: "60px 0",
+          color: "rgba(226,232,240,0.2)", fontSize: "13px",
+        }}>
+          Waiting for events...
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        {events.map((event, i) => {
-          const color = EVENT_COLORS[event.type];
-          return (
-            <div key={event.id} style={{
-              display: "flex", alignItems: "center", gap: "14px",
-              padding: "12px 16px",
-              background: i === 0 ? "rgba(0,200,255,0.04)" : "rgba(255,255,255,0.02)",
-              border: `1px solid ${i === 0 ? "rgba(0,200,255,0.15)" : "rgba(255,255,255,0.04)"}`,
-              borderRadius: "7px",
-              animation: i === 0 ? "fadeIn 0.4s ease" : "none",
-              transition: "all 0.3s",
-            }}>
-              <span style={{ fontSize: "14px", minWidth: "20px" }}>{EVENT_ICONS[event.type]}</span>
-              <div style={{
-                width: "6px", height: "6px",
-                borderRadius: "50%",
-                background: color,
-                boxShadow: i === 0 ? `0 0 8px ${color}` : "none",
-                flexShrink: 0,
-              }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: "600", color: color }}>
-                    {event.title}
-                  </span>
-                  {event.amount && (
-                    <span style={{
-                      fontSize: "11px", padding: "1px 7px",
-                      background: "rgba(0,255,120,0.08)",
-                      border: "1px solid rgba(0,255,120,0.15)",
-                      borderRadius: "4px", color: "#00ff78",
-                    }}>
-                      {event.amount}
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: "11px", color: "rgba(226,232,240,0.35)", marginTop: "2px" }}>
-                  {event.detail}
-                </div>
-              </div>
-              <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: "10px", color: "rgba(226,232,240,0.25)" }}>{event.time}</div>
-                <div style={{ fontSize: "10px", color: "rgba(0,200,255,0.3)", marginTop: "2px", fontFamily: "monospace" }}>
-                  {event.txHash}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {events.map((event, i) => (
+          <EventRow key={event.id} event={event} isLatest={i === 0} />
+        ))}
       </div>
     </div>
   );
