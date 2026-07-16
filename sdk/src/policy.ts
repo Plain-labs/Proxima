@@ -61,6 +61,20 @@ export class PolicyClient {
     this.contract = new Contract(config.policyContractId);
   }
 
+  /**
+   * Return total number of policies ever created on-chain.
+   */
+  async policyCount(): Promise<bigint> {
+    const result = await this.rpc.simulateTransaction(
+      this._buildSimulation('policy_count', [])
+    );
+    if (SorobanRpc.Api.isSimulationError(result)) return 0n;
+    const raw = scValToNative(
+      (result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result!.retval
+    );
+    return BigInt(raw as number);
+  }
+
   // ─── Read Methods ───────────────────────────────────────────────────────────
 
   /**
