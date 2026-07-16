@@ -64,8 +64,8 @@ export function useAgentCount(): UseAgentCountState {
     setLoading(true);
     getProxima()
       .registry.agentCount()
-      .then((n) => { if (!cancelled) setCount(n); })
-      .catch((err) => { if (!cancelled) setError((err as Error).message); })
+      .then((n: bigint) => { if (!cancelled) setCount(n); })
+      .catch((err: unknown) => { if (!cancelled) setError((err as Error).message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -97,7 +97,7 @@ export function useAgentExists(id: string): {
       setChecking(true);
       getProxima()
         .registry.agentExists(id)
-        .then((result) => { if (!cancelled) setExists(result); })
+        .then((result: boolean) => { if (!cancelled) setExists(result); })
         .catch(() => { if (!cancelled) setExists(null); })
         .finally(() => { if (!cancelled) setChecking(false); });
     }, 400);
