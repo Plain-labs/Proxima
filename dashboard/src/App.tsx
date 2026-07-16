@@ -92,7 +92,7 @@ export default function App() {
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "18px", fontWeight: "bold",
               boxShadow: "0 0 20px rgba(0,200,255,0.4)",
-            }}>S</div>
+            }}>P</div>
             <div>
               <div style={{ fontSize: "16px", fontWeight: "700", letterSpacing: "0.05em", color: "#fff" }}>
                 PROXIMA
