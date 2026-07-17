@@ -6,6 +6,7 @@ import {
   scValToNative,
   xdr,
   Keypair,
+  Transaction,
 } from '@stellar/stellar-sdk';
 import { rpc as SorobanRpc } from '@stellar/stellar-sdk';
 
@@ -174,6 +175,84 @@ export class PolicyClient {
     // Extract policy ID from return value
     const returnVal = scValToNative(txResult);
     return BigInt(returnVal as number);
+  }
+
+  /**
+   * Build an unsigned create-policy transaction for browser-wallet signing.
+   *
+   * @param params          Policy creation parameters
+   * @param ownerPublicKey  Public key of the wallet that will sign
+   * @returns               Unsigned transaction XDR (base64)
+   */
+  async buildCreatePolicyTx(
+    params: CreatePolicyParams & { ownerPublicKey: string }
+  ): Promise<string> {
+    const account = await this.rpc.getAccount(params.ownerPublicKey);
+
+    const args = [
+      nativeToScVal(params.agent, { type: 'address' }),
+      nativeToScVal(toStroops(params.maxPerTx), { type: 'i128' }),
+      nativeToScVal(toStroops(params.dailyLimit), { type: 'i128' }),
+      nativeToScVal(params.asset, { type: 'string' }),
+      nativeToScVal(params.issuer, { type: 'address' }),
+      params.allowedRecipient
+        ? xdr.ScVal.scvVec([nativeToScVal(params.allowedRecipient, { type: 'address' })])
+        : xdr.ScVal.scvVec([]),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('create_policy', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    return (prepared as Transaction).toEnvelope().toXDR('base64');
+  }
+
+  /**
+   * Build an unsigned revoke-policy transaction for browser-wallet signing.
+   *
+   * @param policyId        Policy to revoke
+   * @param ownerPublicKey  Public key of the wallet that will sign
+   * @returns               Unsigned transaction XDR (base64)
+   */
+  async buildRevokePolicyTx(
+    policyId: bigint,
+    ownerPublicKey: string
+  ): Promise<string> {
+    const account = await this.rpc.getAccount(ownerPublicKey);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(
+        this.contract.call('revoke_policy', nativeToScVal(policyId, { type: 'u64' }))
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    return (prepared as Transaction).toEnvelope().toXDR('base64');
+  }
+
+  /**
+   * Submit a signed transaction XDR (returned by Freighter) to the network.
+   *
+   * @param signedXdr  Base64 XDR signed by Freighter
+   * @returns          Transaction hash
+   */
+  async submitSignedTx(signedXdr: string): Promise<string> {
+    const tx = TransactionBuilder.fromXDR(
+      signedXdr,
+      this.config.networkPassphrase
+    );
+    const response = await this.rpc.sendTransaction(tx);
+    await this._waitForConfirmation(response.hash);
+    return response.hash;
   }
 
   /**
