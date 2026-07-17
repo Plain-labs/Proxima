@@ -131,16 +131,15 @@ export function useRemainingAllowance(policyId: bigint | null): UseAllowanceStat
  * Return total number of policies ever created on-chain.
  */
 export function usePolicyCount(): { count: bigint; loading: boolean } {
-  const [count] = useState<bigint>(0n);
+  const [count, setCount] = useState<bigint>(0n);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     getProxima()
-      // policy_count isn't directly on PolicyClient yet — placeholder until added
-      .registry.agentCount()
-      .then(() => {})
+      .policy.policyCount()
+      .then((n: bigint) => { if (!cancelled) setCount(n); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
