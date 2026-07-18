@@ -1,6 +1,7 @@
 # Proxima 🧠⚡
 
 **Open-source AI Agent Registry & Autonomous Payment Gateway on Stellar**
+Live Link: https://nullius-taupe.vercel.app/
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Built on Stellar](https://img.shields.io/badge/Built%20on-Stellar-blue)](https://stellar.org)
