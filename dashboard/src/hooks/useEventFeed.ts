@@ -45,34 +45,34 @@ interface HorizonContractEvent {
 }
 
 // ─── Topic → event type map ───────────────────────────────────────────────────
-// Topics are short Soroban symbols. We match on the first two.
+// Soroban event topics are base64-encoded XDR ScVal symbols.
+// The XDR encoding for a ScSymbol wraps the string with a 4-byte type prefix
+// (0x00000006) + 4-byte length + the UTF-8 bytes.
+// We extract the symbol string by decoding and slicing past the prefix.
+
+function decodeScSymbol(b64: string): string {
+  try {
+    const binary = atob(b64);
+    // ScSymbol XDR: 4 bytes type (0x00000006) + 4 bytes length + N bytes string
+    if (binary.length < 8) return '';
+    const len = binary.charCodeAt(7); // last byte of the 4-byte length field
+    return binary.slice(8, 8 + len);
+  } catch {
+    return '';
+  }
+}
 
 function classifyTopics(topics: string[]): EventType | null {
   if (topics.length < 2) return null;
-  // Topics are base64-encoded ScVal symbols. We match on known b64 values.
-  // "regist"+"agent" → register
-  // "update"+"agent" → (ignored, no feed entry)
-  // "repupd"+"agent" → reputation
-  // "deact"+"agent"  → deactivate
-  // "policy"+"create"→ policy_create
-  // "policy"+"revoke"→ policy_revoke
-  // "pay"+"exec"     → payment
-  const t1 = topics[0];
-  const t2 = topics[1];
+  const t1 = decodeScSymbol(topics[0]);
+  const t2 = decodeScSymbol(topics[1]);
 
-  // Decode b64 → utf8 for matching (topics are ScSymbol XDR)
-  try {
-    const d1 = atob(t1);
-    const d2 = atob(t2);
-    if (d1.includes('regist')) return 'register';
-    if (d1.includes('repupd')) return 'reputation';
-    if (d1.includes('deact')) return 'deactivate';
-    if (d1.includes('policy') && d2.includes('create')) return 'policy_create';
-    if (d1.includes('policy') && d2.includes('revoke')) return 'policy_revoke';
-    if (d1.includes('pay')) return 'payment';
-  } catch {
-    return null;
-  }
+  if (t1.includes('regist')) return 'register';
+  if (t1.includes('repupd')) return 'reputation';
+  if (t1.includes('deact')) return 'deactivate';
+  if (t1.includes('policy') && t2.includes('create')) return 'policy_create';
+  if (t1.includes('policy') && t2.includes('revoke')) return 'policy_revoke';
+  if (t1.includes('pay')) return 'payment';
   return null;
 }
 
@@ -171,38 +171,67 @@ export function useEventFeed(options: UseEventFeedOptions = {}) {
   // ── Start Horizon SSE stream ───────────────────────────────────────────────
 
   const startHorizonStream = useCallback(() => {
-    const { explorerBase } = getCurrentNetworkInfo();
-    // Horizon contract_events SSE endpoint
-    const url = `${explorerBase.replace('stellar.expert/explorer', 'horizon-testnet.stellar.org')}/contract_events?order=asc`;
+    const { horizonUrl, registryContractId, policyContractId } = getCurrentNetworkInfo();
 
-    try {
-      const es = new EventSource(url);
-      esRef.current = es;
-
-      es.addEventListener('message', (e) => {
-        try {
-          const raw: HorizonContractEvent = JSON.parse(e.data);
-          const event = formatEvent(raw);
-          if (event) pushEvent(event);
-        } catch {
-          // malformed event — skip
-        }
-      });
-
-      es.addEventListener('open', () => {
-        setLive(true);
-        setUsingSimulation(false);
-      });
-
-      es.addEventListener('error', () => {
-        es.close();
-        esRef.current = null;
-        setLive(false);
-        if (simulateOnFailure) startSimulation();
-      });
-    } catch {
+    // Horizon SSE endpoint for contract events — one stream per contract,
+    // merged into a single feed. The correct path is /contract_events with
+    // ?contract_id= (singular) and cursor=now to get only new events.
+    const contracts = [registryContractId, policyContractId].filter(Boolean);
+    if (contracts.length === 0) {
       if (simulateOnFailure) startSimulation();
+      return;
     }
+
+    // Open one EventSource per contract and merge into shared state
+    let connectedCount = 0;
+    const sources: EventSource[] = [];
+
+    const onError = () => {
+      sources.forEach((s) => s.close());
+      sources.length = 0;
+      setLive(false);
+      if (simulateOnFailure) startSimulation();
+    };
+
+    contracts.forEach((contractId) => {
+      const url =
+        `${horizonUrl}/contract_events` +
+        `?contract_id=${contractId}` +
+        `&cursor=now` +
+        `&order=asc` +
+        `&limit=100`;
+
+      try {
+        const es = new EventSource(url);
+        sources.push(es);
+        esRef.current = es; // keep last ref for cleanup
+
+        es.addEventListener('message', (e) => {
+          try {
+            const raw: HorizonContractEvent = JSON.parse(e.data);
+            const event = formatEvent(raw);
+            if (event) pushEvent(event);
+          } catch {
+            // malformed event — skip
+          }
+        });
+
+        es.addEventListener('open', () => {
+          connectedCount++;
+          if (connectedCount === contracts.length) {
+            setLive(true);
+            setUsingSimulation(false);
+          }
+        });
+
+        es.addEventListener('error', onError);
+      } catch {
+        onError();
+      }
+    });
+
+    // Store cleanup function
+    esRef.current = { close: () => sources.forEach((s) => s.close()) } as EventSource;
   }, [pushEvent, simulateOnFailure]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Simulated feed fallback ───────────────────────────────────────────────
