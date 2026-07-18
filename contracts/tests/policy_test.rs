@@ -303,7 +303,9 @@ fn test_multiple_policies_independent() {
 
 /// Helper: set up a policy contract + a funded token account ready to
 /// call execute_payment.  Returns (client, policy_id, agent, recipient).
-fn setup_payment_env(env: &Env) -> (
+fn setup_payment_env(
+    env: &Env,
+) -> (
     PolicyContractClient,
     u64,
     soroban_sdk::Address,
@@ -313,12 +315,9 @@ fn setup_payment_env(env: &Env) -> (
     let contract_id = env.register_contract(None, PolicyContract);
     let client = PolicyContractClient::new(env, &contract_id);
 
-    let issuer =
-        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
-    let agent =
-        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
-    let recipient =
-        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
+    let issuer = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
+    let agent = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
+    let recipient = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
 
     // Create a Stellar asset and mint 10 USDC (100_000_000 stroops) to the
     // policy contract so it can fund transfers.
@@ -329,7 +328,7 @@ fn setup_payment_env(env: &Env) -> (
         &500_000_i128,    // 0.05 USDC max per tx
         &10_000_000_i128, // 1.00 USDC daily limit
         &String::from_str(env, "USDC"),
-        &token_id,        // use the registered token address as issuer
+        &token_id, // use the registered token address as issuer
         &None,
     );
 
@@ -466,14 +465,10 @@ fn test_execute_payment_wrong_recipient_panics() {
     // Create a policy with an allowed_recipient restriction
     let contract_id = env.register_contract(None, PolicyContract);
     let client = PolicyContractClient::new(&env, &contract_id);
-    let issuer =
-        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
-    let agent =
-        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
-    let allowed =
-        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
-    let wrong =
-        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+    let issuer = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+    let agent = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+    let allowed = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+    let wrong = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
 
     let token_id = mint_token(&env, &issuer, &contract_id, 100_000_000);
 
