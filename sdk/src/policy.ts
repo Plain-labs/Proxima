@@ -55,11 +55,24 @@ import {
  */
 export class PolicyClient {
   private rpc: SorobanRpc.Server;
-  private contract: Contract;
+  private _contract: Contract | null = null;
 
   constructor(private config: ResolvedConfig) {
     this.rpc = createRpcServer(config);
-    this.contract = new Contract(config.policyContractId);
+  }
+
+  /** Lazy contract accessor — validates the contract ID only when first used. */
+  private get contract(): Contract {
+    if (!this._contract) {
+      if (!this.config.policyContractId) {
+        throw new ProximaError(
+          'Policy contract ID is not configured for this network.',
+          ErrorCodes.CONTRACT_ERROR
+        );
+      }
+      this._contract = new Contract(this.config.policyContractId);
+    }
+    return this._contract;
   }
 
   /**
