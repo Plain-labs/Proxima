@@ -83,7 +83,7 @@ const count = await proxima.registry.agentCount() // bigint
 
 ### Write operations (require a keypair)
 
-#### Register an agent
+#### Register an agent (server-side / CLI)
 
 ```ts
 import { Keypair } from '@stellar/stellar-sdk'
@@ -105,6 +105,32 @@ const id = await proxima.registry.register(
   keypair
 )
 // id === 'my-agent-v1'
+```
+
+#### Register an agent (browser — Freighter wallet)
+
+Use `buildRegisterTx` + `submitSignedTx` when you need the user's browser
+wallet (Freighter) to sign the transaction instead of a raw keypair.
+
+```ts
+// 1. Build the unsigned transaction XDR
+const unsignedXdr = await proxima.registry.buildRegisterTx({
+  id: 'my-agent-v1',
+  name: 'My Agent',
+  description: 'Does amazing things.',
+  capabilities: ['text-generation', 'summarization'],
+  pricePerCall: '0.005',
+  paymentAsset: 'USDC',
+  paymentIssuer: USDC_ISSUER.testnet,
+  ownerPublicKey: freighter.publicKey,  // connected wallet
+})
+
+// 2. Ask Freighter to sign
+const { signedTxXdr } = await window.freighter.signTransaction(unsignedXdr)
+
+// 3. Submit to the network
+const txHash = await proxima.registry.submitSignedTx(signedTxXdr)
+console.log('Registered! TX:', txHash)
 ```
 
 #### Update an agent
@@ -164,7 +190,7 @@ const display = await proxima.policy.remainingAllowanceDisplay(1n)
 
 ### Write operations
 
-#### Create a spending policy
+#### Create a spending policy (server-side / CLI)
 
 ```ts
 const policyId = await proxima.policy.create(
@@ -179,6 +205,37 @@ const policyId = await proxima.policy.create(
   ownerKeypair
 )
 // policyId === 1n
+```
+
+#### Create a spending policy (browser — Freighter wallet)
+
+```ts
+// 1. Build the unsigned transaction XDR
+const unsignedXdr = await proxima.policy.buildCreatePolicyTx({
+  agent: agentAddress,
+  maxPerTx: '0.50',
+  dailyLimit: '10.00',
+  asset: 'USDC',
+  issuer: USDC_ISSUER.testnet,
+  ownerPublicKey: freighter.publicKey,
+})
+
+// 2. Sign with Freighter
+const { signedTxXdr } = await window.freighter.signTransaction(unsignedXdr)
+
+// 3. Submit
+const txHash = await proxima.policy.submitSignedTx(signedTxXdr)
+```
+
+#### Revoke a policy (browser — Freighter wallet)
+
+```ts
+const unsignedXdr = await proxima.policy.buildRevokePolicyTx(
+  policyId,           // bigint policy ID
+  freighter.publicKey
+)
+const { signedTxXdr } = await window.freighter.signTransaction(unsignedXdr)
+await proxima.policy.submitSignedTx(signedTxXdr)
 ```
 
 #### Execute an autonomous payment
@@ -258,6 +315,23 @@ try {
 | `UNAUTHORIZED` | Caller is not the owner/agent |
 | `NETWORK_ERROR` | RPC connection or timeout issue |
 | `CONTRACT_ERROR` | Generic Soroban contract error |
+
+---
+
+## Running Tests
+
+```bash
+# From the sdk/ directory
+bun test
+
+# With coverage
+bun test --coverage
+```
+
+The test suite covers unit tests for all pure utility functions, error types,
+and client instantiation (39 tests). Network-dependent methods (RPC calls)
+are not mocked in the unit suite — use integration tests against a local
+Stellar sandbox for those.
 
 ---
 
