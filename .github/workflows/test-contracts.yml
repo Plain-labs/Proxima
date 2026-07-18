@@ -34,7 +34,7 @@ jobs:
 
       - name: Check formatting
         working-directory: contracts
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
 
       - name: Clippy (deny warnings)
         working-directory: contracts
