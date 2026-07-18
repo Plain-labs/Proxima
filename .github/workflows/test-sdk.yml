@@ -16,23 +16,16 @@ on:
 
 jobs:
   sdk:
-    name: SDK — Type Check & Tests
+    name: SDK — Type Check, Lint, Test & Build
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: ['18', '20', '22']
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install SDK dependencies
         working-directory: sdk
@@ -48,13 +41,13 @@ jobs:
 
       - name: Run tests
         working-directory: sdk
-        run: bun run test
+        run: bun test
 
       - name: Build
         working-directory: sdk
         run: bun run build
 
-      - name: Verify exports
+      - name: Verify dist exports
         working-directory: sdk
         run: node -e "const sdk = require('./dist/index.js'); console.log('SDK exports:', Object.keys(sdk).join(', '))"
 
@@ -66,18 +59,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install root dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build SDK
+      - name: Build SDK first
         working-directory: sdk
         run: bun run build
 
