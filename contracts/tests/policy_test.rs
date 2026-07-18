@@ -16,6 +16,19 @@ fn setup(env: &Env) -> (PolicyContractClient, soroban_sdk::Address) {
     (client, issuer)
 }
 
+/// Helper: mint `amount` of `asset` to `to` using the Stellar token contract.
+fn mint_token(
+    env: &Env,
+    issuer: &soroban_sdk::Address,
+    to: &soroban_sdk::Address,
+    amount: i128,
+) -> soroban_sdk::Address {
+    let token_contract_id = env.register_stellar_asset_contract_v2(issuer.clone());
+    let token_admin = token::StellarAssetClient::new(env, &token_contract_id.address());
+    token_admin.mint(to, &amount);
+    token_contract_id.address()
+}
+
 // ─── create_policy ───────────────────────────────────────────────────────────
 
 #[test]
@@ -284,4 +297,241 @@ fn test_multiple_policies_independent() {
     client.revoke_policy(&id_a);
     assert!(!client.get_policy(&id_a).is_active);
     assert!(client.get_policy(&id_b).is_active);
+}
+
+// ─── execute_payment ─────────────────────────────────────────────────────────
+
+/// Helper: set up a policy contract + a funded token account ready to
+/// call execute_payment.  Returns (client, policy_id, agent, recipient).
+fn setup_payment_env(env: &Env) -> (
+    PolicyContractClient,
+    u64,
+    soroban_sdk::Address,
+    soroban_sdk::Address,
+    soroban_sdk::Address, // token_id
+) {
+    let contract_id = env.register_contract(None, PolicyContract);
+    let client = PolicyContractClient::new(env, &contract_id);
+
+    let issuer =
+        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
+    let agent =
+        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
+    let recipient =
+        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
+
+    // Create a Stellar asset and mint 10 USDC (100_000_000 stroops) to the
+    // policy contract so it can fund transfers.
+    let token_id = mint_token(env, &issuer, &contract_id, 100_000_000);
+
+    let policy_id = client.create_policy(
+        &agent,
+        &500_000_i128,    // 0.05 USDC max per tx
+        &10_000_000_i128, // 1.00 USDC daily limit
+        &String::from_str(env, "USDC"),
+        &token_id,        // use the registered token address as issuer
+        &None,
+    );
+
+    (client, policy_id, agent, recipient, token_id)
+}
+
+#[test]
+fn test_execute_payment_success() {
+    let env = create_test_env();
+    env.mock_all_auths();
+
+    let (client, policy_id, agent, recipient, token_id) = setup_payment_env(&env);
+
+    let payment_amount = 100_000_i128; // 0.01 USDC
+
+    let record = client.execute_payment(
+        &policy_id,
+        &recipient,
+        &payment_amount,
+        &String::from_str(&env, "API call #1"),
+    );
+
+    // Return value correct
+    assert_eq!(record.policy_id, policy_id);
+    assert_eq!(record.agent, agent);
+    assert_eq!(record.recipient, recipient);
+    assert_eq!(record.amount, payment_amount);
+
+    // Policy state updated
+    let policy = client.get_policy(&policy_id);
+    assert_eq!(policy.spent_today, payment_amount);
+    assert_eq!(policy.total_spent, payment_amount);
+
+    // Recipient balance increased
+    let token = token::Client::new(&env, &token_id);
+    assert_eq!(token.balance(&recipient), payment_amount);
+}
+
+#[test]
+fn test_execute_payment_accumulates_spent_today() {
+    let env = create_test_env();
+    env.mock_all_auths();
+
+    let (client, policy_id, _agent, recipient, _token_id) = setup_payment_env(&env);
+
+    // Make three payments
+    for _ in 0..3 {
+        client.execute_payment(
+            &policy_id,
+            &recipient,
+            &100_000_i128,
+            &String::from_str(&env, "test"),
+        );
+    }
+
+    let policy = client.get_policy(&policy_id);
+    assert_eq!(policy.spent_today, 300_000);
+    assert_eq!(policy.total_spent, 300_000);
+}
+
+#[test]
+fn test_execute_payment_exceeds_per_tx_limit_panics() {
+    let env = create_test_env();
+    env.mock_all_auths();
+
+    let (client, policy_id, _agent, recipient, _token_id) = setup_payment_env(&env);
+
+    // max_per_tx is 500_000; try 600_000
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.execute_payment(
+            &policy_id,
+            &recipient,
+            &600_000_i128,
+            &String::from_str(&env, "too much"),
+        );
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_execute_payment_exceeds_daily_limit_panics() {
+    let env = create_test_env();
+    env.mock_all_auths();
+
+    let (client, policy_id, _agent, recipient, _token_id) = setup_payment_env(&env);
+
+    // daily_limit is 10_000_000; make 20 payments of 500_000 = 10_000_000 exactly
+    for _ in 0..20 {
+        client.execute_payment(
+            &policy_id,
+            &recipient,
+            &500_000_i128,
+            &String::from_str(&env, "batch"),
+        );
+    }
+
+    // 21st payment should fail
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.execute_payment(
+            &policy_id,
+            &recipient,
+            &500_000_i128,
+            &String::from_str(&env, "over limit"),
+        );
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_execute_payment_on_revoked_policy_panics() {
+    let env = create_test_env();
+    env.mock_all_auths();
+
+    let (client, policy_id, _agent, recipient, _token_id) = setup_payment_env(&env);
+
+    client.revoke_policy(&policy_id);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.execute_payment(
+            &policy_id,
+            &recipient,
+            &100_000_i128,
+            &String::from_str(&env, "revoked"),
+        );
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_execute_payment_wrong_recipient_panics() {
+    let env = create_test_env();
+    env.mock_all_auths();
+
+    // Create a policy with an allowed_recipient restriction
+    let contract_id = env.register_contract(None, PolicyContract);
+    let client = PolicyContractClient::new(&env, &contract_id);
+    let issuer =
+        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+    let agent =
+        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+    let allowed =
+        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+    let wrong =
+        <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+
+    let token_id = mint_token(&env, &issuer, &contract_id, 100_000_000);
+
+    let policy_id = client.create_policy(
+        &agent,
+        &500_000_i128,
+        &10_000_000_i128,
+        &String::from_str(&env, "USDC"),
+        &token_id,
+        &Some(allowed),
+    );
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.execute_payment(
+            &policy_id,
+            &wrong,
+            &100_000_i128,
+            &String::from_str(&env, "wrong recipient"),
+        );
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_execute_payment_zero_amount_panics() {
+    let env = create_test_env();
+    env.mock_all_auths();
+
+    let (client, policy_id, _agent, recipient, _token_id) = setup_payment_env(&env);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.execute_payment(
+            &policy_id,
+            &recipient,
+            &0_i128,
+            &String::from_str(&env, "zero"),
+        );
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_remaining_allowance_decreases_after_payment() {
+    let env = create_test_env();
+    env.mock_all_auths();
+
+    let (client, policy_id, _agent, recipient, _token_id) = setup_payment_env(&env);
+
+    let before = client.remaining_allowance(&policy_id);
+    assert_eq!(before, 10_000_000);
+
+    client.execute_payment(
+        &policy_id,
+        &recipient,
+        &1_000_000_i128,
+        &String::from_str(&env, "pay"),
+    );
+
+    let after = client.remaining_allowance(&policy_id);
+    assert_eq!(after, 9_000_000);
 }
