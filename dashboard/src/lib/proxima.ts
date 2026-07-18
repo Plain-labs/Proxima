@@ -78,6 +78,9 @@ export interface NetworkInfo {
   label: string;
   color: string;
   explorerBase: string;
+  horizonUrl: string;
+  registryContractId: string;
+  policyContractId: string;
 }
 
 export const NETWORK_INFO: Record<Network, NetworkInfo> = {
@@ -86,18 +89,27 @@ export const NETWORK_INFO: Record<Network, NetworkInfo> = {
     label: 'STELLAR MAINNET',
     color: '#00ff78',
     explorerBase: 'https://stellar.expert/explorer/public',
+    horizonUrl: 'https://horizon.stellar.org',
+    registryContractId: '',
+    policyContractId: '',
   },
   testnet: {
     name: 'testnet',
     label: 'STELLAR TESTNET',
     color: '#00c8ff',
     explorerBase: 'https://stellar.expert/explorer/testnet',
+    horizonUrl: 'https://horizon-testnet.stellar.org',
+    registryContractId: 'CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R',
+    policyContractId: 'CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ',
   },
   futurenet: {
     name: 'futurenet',
     label: 'FUTURENET',
     color: '#ffb830',
     explorerBase: 'https://stellar.expert/explorer/futurenet',
+    horizonUrl: 'https://horizon-futurenet.stellar.org',
+    registryContractId: '',
+    policyContractId: '',
   },
 };
 

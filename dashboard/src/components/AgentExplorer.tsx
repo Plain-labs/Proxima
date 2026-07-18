@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useMockAgents, MOCK_AGENTS } from "../hooks/useRegistry";
+import { useAgents, MOCK_AGENTS } from "../hooks/useRegistry";
+import type { MockAgent } from "../hooks/useRegistry";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AgentCardProps {
-  agent: ReturnType<typeof useMockAgents>[number];
+  agent: MockAgent;
   onCreatePolicy: (agentId: string, agentName: string) => void;
 }
 
@@ -249,8 +250,8 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
   const [filterActive, setFilterActive] = useState(false);
   const [sortBy, setSortBy] = useState<"reputation" | "calls" | "price">("reputation");
 
-  // Use the hook — swappable for live on-chain data once indexer is live
-  const agents = useMockAgents({
+  // Fetch live on-chain agents; falls back to mock data if RPC is unavailable
+  const { agents, loading, usingMock } = useAgents({
     capability: filterCap || undefined,
     activeOnly: filterActive,
     sortBy,
@@ -268,7 +269,7 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
   });
 
   const allCapabilities = Array.from(
-    new Set(MOCK_AGENTS.flatMap((a) => a.capabilities))
+    new Set([...MOCK_AGENTS, ...agents].flatMap((a) => a.capabilities))
   ).sort();
 
   const handleCreatePolicy = (agentId: string, agentName: string) => {
@@ -363,8 +364,22 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
       <div style={{
         fontSize: "11px", color: "rgba(226,232,240,0.3)",
         marginBottom: "16px", letterSpacing: "0.1em",
+        display: "flex", alignItems: "center", gap: "10px",
       }}>
-        SHOWING {filtered.length} OF {MOCK_AGENTS.length} AGENTS
+        <span>SHOWING {filtered.length} OF {agents.length} AGENTS</span>
+        {loading && (
+          <span style={{ color: "rgba(0,200,255,0.4)" }}>LOADING...</span>
+        )}
+        {!loading && usingMock && (
+          <span style={{
+            fontSize: "9px", padding: "2px 7px",
+            background: "rgba(255,184,48,0.08)",
+            border: "1px solid rgba(255,184,48,0.2)",
+            borderRadius: "4px", color: "rgba(255,184,48,0.6)",
+          }}>
+            DEMO DATA
+          </span>
+        )}
       </div>
 
       {/* Agent grid */}

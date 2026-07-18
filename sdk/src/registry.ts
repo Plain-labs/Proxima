@@ -6,6 +6,7 @@ import {
   scValToNative,
   xdr,
   Keypair,
+  Transaction,
 } from '@stellar/stellar-sdk';
 import { rpc as SorobanRpc } from '@stellar/stellar-sdk';
 
@@ -39,11 +40,24 @@ import {
  */
 export class RegistryClient {
   private rpc: SorobanRpc.Server;
-  private contract: Contract;
+  private _contract: Contract | null = null;
 
   constructor(private config: ResolvedConfig) {
     this.rpc = createRpcServer(config);
-    this.contract = new Contract(config.registryContractId);
+  }
+
+  /** Lazy contract accessor — validates the contract ID only when first used. */
+  private get contract(): Contract {
+    if (!this._contract) {
+      if (!this.config.registryContractId) {
+        throw new ProximaError(
+          'Registry contract ID is not configured for this network.',
+          ErrorCodes.CONTRACT_ERROR
+        );
+      }
+      this._contract = new Contract(this.config.registryContractId);
+    }
+    return this._contract;
   }
 
   // ─── Read Methods ───────────────────────────────────────────────────────────
@@ -234,6 +248,62 @@ export class RegistryClient {
     await this._waitForConfirmation(response.hash);
 
     return params.id;
+  }
+
+  /**
+   * Build an unsigned register transaction for browser-wallet signing (e.g. Freighter).
+   *
+   * Unlike `register()` which takes a Keypair, this method returns a base64 XDR
+   * string that can be passed to `window.freighter.signTransaction()`, then
+   * submitted via `submitSignedTx()`.
+   *
+   * @param params          Agent registration parameters
+   * @param ownerPublicKey  Public key of the wallet that will sign
+   * @returns               Unsigned transaction XDR (base64)
+   */
+  async buildRegisterTx(
+    params: RegisterAgentParams & { ownerPublicKey: string }
+  ): Promise<string> {
+    const account = await this.rpc.getAccount(params.ownerPublicKey);
+
+    const args = [
+      nativeToScVal(params.id, { type: 'string' }),
+      nativeToScVal(params.name, { type: 'string' }),
+      nativeToScVal(params.description, { type: 'string' }),
+      nativeToScVal(params.capabilities, { type: 'vec' }),
+      nativeToScVal(toStroops(params.pricePerCall), { type: 'i128' }),
+      nativeToScVal(params.paymentAsset, { type: 'string' }),
+      nativeToScVal(params.paymentIssuer ?? '', { type: 'address' }),
+      nativeToScVal(params.endpointUrl ?? '', { type: 'bytes' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('register', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    return (prepared as Transaction).toEnvelope().toXDR('base64');
+  }
+
+  /**
+   * Submit a signed transaction XDR (returned by Freighter) to the network.
+   * Works for any Proxima contract transaction.
+   *
+   * @param signedXdr  Base64 XDR signed by Freighter
+   * @returns          Transaction hash
+   */
+  async submitSignedTx(signedXdr: string): Promise<string> {
+    const tx = TransactionBuilder.fromXDR(
+      signedXdr,
+      this.config.networkPassphrase
+    );
+    const response = await this.rpc.sendTransaction(tx);
+    await this._waitForConfirmation(response.hash);
+    return response.hash;
   }
 
   /**

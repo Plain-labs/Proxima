@@ -5,6 +5,8 @@ import RegisterAgent from "./components/RegisterAgent";
 import ActivityFeed from "./components/ActivityFeed";
 import WalletConnect from "./components/WalletConnect";
 import ProximaLogo from "./components/ProximaLogo";
+import { useAgentCount } from "./hooks/useRegistry";
+import { usePolicyCount } from "./hooks/usePolicy";
 
 type Tab = "explore" | "register" | "policies" | "activity";
 
@@ -21,17 +23,28 @@ const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "activity", label: "Activity Feed", icon: "📡" },
 ];
 
-// Mock stats for demonstration
-const STATS = [
-  { label: "Registered Agents", value: "148", delta: "+12 this week" },
-  { label: "Active Policies", value: "2,341", delta: "+89 today" },
-  { label: "USDC Transacted", value: "$48,291", delta: "last 24h" },
-  { label: "Avg Reputation", value: "87.4%", delta: "across all agents" },
-];
-
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("explore");
   const [policyPrefill, setPolicyPrefill] = useState<PolicyPrefill | null>(null);
+
+  // Live on-chain stats — fall back to "–" while loading
+  const { count: agentCount, loading: agentCountLoading } = useAgentCount();
+  const { count: policyCount, loading: policyCountLoading } = usePolicyCount();
+
+  const STATS = [
+    {
+      label: "Registered Agents",
+      value: agentCountLoading ? "–" : agentCount.toLocaleString(),
+      delta: "on-chain total",
+    },
+    {
+      label: "Total Policies",
+      value: policyCountLoading ? "–" : policyCount.toLocaleString(),
+      delta: "on-chain total",
+    },
+    { label: "USDC Transacted", value: "$48,291", delta: "last 24h" },
+    { label: "Avg Reputation", value: "87.4%", delta: "across all agents" },
+  ];
 
   /** Navigate to Policy Manager with agent pre-filled */
   const handleCreatePolicy = (agentId: string, agentName: string) => {

@@ -200,15 +200,19 @@ Proxima/
 - [x] Project scaffold & architecture
 - [x] Agent Registry Soroban contract (Rust) + tests
 - [x] Spending Policy Soroban contract (Rust) + tests
-- [ ] Deploy both contracts to Stellar Testnet
+- [x] `execute_payment` contract tests (token transfer path)
+- [x] Deploy both contracts to Stellar Testnet
 - [x] TypeScript SDK core (registry + policy clients)
-- [x] SDK unit tests
+- [x] SDK browser-wallet signing (`buildRegisterTx`, `buildCreatePolicyTx`, `buildRevokePolicyTx`, `submitSignedTx`)
+- [x] SDK unit tests (39 tests via `bun test`)
 
 ### Phase 2 — Explorer (Months 3–4)
-- [x] React dashboard — Agent Explorer UI
-- [x] React dashboard — Policy Manager UI
+- [x] React dashboard — Agent Explorer UI (live on-chain data with mock fallback)
+- [x] React dashboard — Policy Manager UI (create + revoke wired to Freighter)
+- [x] React dashboard — Register Agent UI (wired to Freighter + SDK, ID availability badge)
 - [x] Real-time Activity Feed (Stellar event streaming)
-- [ ] Freighter wallet integration
+- [x] Freighter wallet integration
+- [x] Live on-chain stats bar (agent count + policy count)
 - [x] SDK usage examples (2 complete examples)
 
 ### Phase 3 — Integration & Polish (Month 5)

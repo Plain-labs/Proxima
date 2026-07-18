@@ -3,8 +3,6 @@ import type { Agent, FindAgentsParams } from '../lib/proxima';
 import { getProxima } from '../lib/proxima';
 
 // ─── useAgent ────────────────────────────────────────────────────────────────
-
-interface UseAgentState {
   agent: Agent | null;
   loading: boolean;
   error: string | null;
@@ -108,6 +106,100 @@ export function useAgentExists(id: string): {
   }, [id]);
 
   return { exists, checking };
+}
+
+// ─── useAgents ────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch agents from the on-chain registry using the Proxima SDK's find() method.
+ * Falls back to the mock agent list if the RPC is unavailable or returns no results
+ * (e.g. the contract has no registered agents yet on testnet).
+ *
+ * @param params  Filter / sort criteria (same as FindAgentsParams + sortBy)
+ */
+export function useAgents(
+  params: FindAgentsParams & { sortBy?: 'reputation' | 'calls' | 'price' } = {}
+): {
+  agents: MockAgent[];
+  loading: boolean;
+  error: string | null;
+  usingMock: boolean;
+  refetch: () => void;
+} {
+  const { capability, maxPrice, minReputation, activeOnly, sortBy = 'reputation' } = params;
+
+  const [agents, setAgents] = useState<MockAgent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [usingMock, setUsingMock] = useState(false);
+
+  const fetchAgents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const proxima = getProxima();
+      const raw: Agent[] = await proxima.registry.find({
+        capability,
+        maxPrice,
+        minReputation,
+        activeOnly,
+      });
+
+      if (raw.length === 0) {
+        // No on-chain agents yet — show mock data so the UI is useful
+        setAgents(
+          useMockAgents({ capability, maxPrice, minReputation, activeOnly, sortBy })
+        );
+        setUsingMock(true);
+      } else {
+        // Map SDK Agent → MockAgent shape so AgentCard stays unchanged
+        const mapped: MockAgent[] = raw
+          .map((a) => ({
+            id: a.id,
+            name: a.name,
+            description: a.description,
+            capabilities: a.capabilities,
+            priceDisplay: a.priceDisplay,
+            reputationDisplay: a.reputationDisplay,
+            reputation: a.reputation,
+            totalCalls: Number(a.totalCalls),
+            isActive: a.isActive,
+            owner: a.owner,
+            registeredAt: new Date(a.registeredAt * 1000)
+              .toISOString()
+              .split('T')[0],
+          }))
+          .sort((a, b) => {
+            if (sortBy === 'reputation') return b.reputation - a.reputation;
+            if (sortBy === 'calls') return b.totalCalls - a.totalCalls;
+            if (sortBy === 'price')
+              return (
+                parseFloat(a.priceDisplay) - parseFloat(b.priceDisplay)
+              );
+            return 0;
+          });
+        setAgents(mapped);
+        setUsingMock(false);
+      }
+    } catch (err) {
+      // RPC unavailable — fall back to mock data silently
+      setAgents(
+        useMockAgents({ capability, maxPrice, minReputation, activeOnly, sortBy })
+      );
+      setUsingMock(true);
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capability, maxPrice, minReputation, activeOnly, sortBy]);
+
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
+
+  return { agents, loading, error, usingMock, refetch: fetchAgents };
 }
 
 // ─── useMockAgents ───────────────────────────────────────────────────────────
