@@ -215,7 +215,11 @@ fn test_get_agent_returns_correct_fields() {
         &String::from_str(&env, "field-test"),
         &String::from_str(&env, "Field Test Agent"),
         &String::from_str(&env, "Testing field storage"),
-        &vec![&env, String::from_str(&env, "image-gen"), String::from_str(&env, "upscale")],
+        &vec![
+            &env,
+            String::from_str(&env, "image-gen"),
+            String::from_str(&env, "upscale"),
+        ],
         &500_000_i128,
         &String::from_str(&env, "USDC"),
         &issuer,
@@ -416,7 +420,11 @@ fn test_update_agent_can_deactivate_via_is_active_flag() {
 
     register_agent(&env, &client, "toggle-test");
 
-    assert!(client.get_agent(&String::from_str(&env, "toggle-test")).is_active);
+    assert!(
+        client
+            .get_agent(&String::from_str(&env, "toggle-test"))
+            .is_active
+    );
 
     client.update_agent(
         &String::from_str(&env, "toggle-test"),
@@ -428,7 +436,11 @@ fn test_update_agent_can_deactivate_via_is_active_flag() {
         &Bytes::new(&env),
     );
 
-    assert!(!client.get_agent(&String::from_str(&env, "toggle-test")).is_active);
+    assert!(
+        !client
+            .get_agent(&String::from_str(&env, "toggle-test"))
+            .is_active
+    );
 }
 
 #[test]
