@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import type { Agent, FindAgentsParams } from '../lib/proxima';
 import { getProxima } from '../lib/proxima';
 
 // ─── useAgent ────────────────────────────────────────────────────────────────
+interface UseAgentState {
   agent: Agent | null;
   loading: boolean;
   error: string | null;
