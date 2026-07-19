@@ -229,7 +229,7 @@ export class RegistryClient {
       nativeToScVal(params.capabilities, { type: 'vec' }),
       nativeToScVal(toStroops(params.pricePerCall), { type: 'i128' }),
       nativeToScVal(params.paymentAsset, { type: 'string' }),
-      nativeToScVal(params.paymentIssuer, { type: 'address' }),
+      nativeToScVal(params.paymentIssuer ?? '', { type: 'address' }),
       nativeToScVal(params.endpointUrl ?? '', { type: 'bytes' }),
     ];
 
