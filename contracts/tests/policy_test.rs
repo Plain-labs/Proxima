@@ -1,15 +1,15 @@
 #![cfg(test)]
 
-use soroban_sdk::{testutils::Address as _, token, vec, Env, String};
+use soroban_sdk::{token, Env, String};
 
-use crate::policy::{PolicyContract, PolicyContractClient};
+use proxima_contracts::policy::{PolicyContract, PolicyContractClient};
 
 fn create_test_env() -> Env {
     Env::default()
 }
 
 /// Helper: deploy the policy contract and return its client + a mock USDC issuer
-fn setup(env: &Env) -> (PolicyContractClient, soroban_sdk::Address) {
+fn setup(env: &Env) -> (PolicyContractClient<'_>, soroban_sdk::Address) {
     let contract_id = env.register_contract(None, PolicyContract);
     let client = PolicyContractClient::new(env, &contract_id);
     let issuer = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);
@@ -171,6 +171,7 @@ fn test_is_authorized_returns_false_for_nonexistent_policy() {
 #[test]
 fn test_revoke_policy_sets_inactive() {
     let env = create_test_env();
+    env.mock_all_auths();
     let (client, issuer) = setup(&env);
     let agent = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
 
@@ -260,6 +261,7 @@ fn test_policy_stores_correct_asset_and_issuer() {
 #[test]
 fn test_multiple_policies_independent() {
     let env = create_test_env();
+    env.mock_all_auths();
     let (client, issuer) = setup(&env);
 
     let agent_a = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
@@ -306,7 +308,7 @@ fn test_multiple_policies_independent() {
 fn setup_payment_env(
     env: &Env,
 ) -> (
-    PolicyContractClient,
+    PolicyContractClient<'_>,
     u64,
     soroban_sdk::Address,
     soroban_sdk::Address,
@@ -523,10 +525,10 @@ fn test_remaining_allowance_decreases_after_payment() {
     client.execute_payment(
         &policy_id,
         &recipient,
-        &1_000_000_i128,
+        &500_000_i128, // within max_per_tx limit
         &String::from_str(&env, "pay"),
     );
 
     let after = client.remaining_allowance(&policy_id);
-    assert_eq!(after, 9_000_000);
+    assert_eq!(after, 9_500_000);
 }

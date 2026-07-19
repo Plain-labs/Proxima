@@ -1,5 +1,3 @@
-#![no_std]
-
 use soroban_sdk::{
     contract, contractimpl, contractmeta, panic_with_error, symbol_short, Address, Bytes, Env,
     String, Vec,
@@ -64,6 +62,7 @@ impl RegistryContract {
     /// * `endpoint_url`    - Optional URL for agent endpoint / documentation
     ///
     /// Emits: `AgentRegistered(id)`
+    #[allow(clippy::too_many_arguments)]
     pub fn register(
         env: Env,
         id: String,
@@ -151,6 +150,7 @@ impl RegistryContract {
     }
 
     /// Update agent metadata. Only the original registering owner can update.
+    #[allow(clippy::too_many_arguments)]
     pub fn update_agent(
         env: Env,
         id: String,

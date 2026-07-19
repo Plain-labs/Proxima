@@ -1,9 +1,8 @@
 #![cfg(test)]
 
-use soroban_sdk::{testutils::Address as _, vec, Bytes, Env, String};
+use soroban_sdk::{vec, Bytes, Env, IntoVal, String};
 
-use crate::registry::{RegistryContract, RegistryContractClient, RegistryError};
-use crate::types::DataKey;
+use proxima_contracts::registry::{RegistryContract, RegistryContractClient};
 
 fn create_test_env() -> Env {
     Env::default()
@@ -84,7 +83,7 @@ fn test_register_duplicate_fails() {
     );
 
     // Second registration with same ID should panic
-    let result = env.try_invoke_contract::<String, _>(
+    let result = env.try_invoke_contract::<String, soroban_sdk::Error>(
         &contract_id,
         &soroban_sdk::symbol_short!("register"),
         (
@@ -247,7 +246,7 @@ fn test_agent_count() {
     assert_eq!(client.agent_count(), 0);
 
     for i in 0..3u32 {
-        let id_str = soroban_sdk::String::from_str(&env, &alloc::format!("agent-{}", i));
+        let id_str = soroban_sdk::String::from_str(&env, &format!("agent-{}", i));
         client.register(
             &id_str,
             &String::from_str(&env, "Agent"),
@@ -266,6 +265,7 @@ fn test_agent_count() {
 #[test]
 fn test_agent_count_does_not_change_on_deactivate() {
     let env = create_test_env();
+    env.mock_all_auths();
     let contract_id = env.register_contract(None, RegistryContract);
     let client = RegistryContractClient::new(&env, &contract_id);
 
@@ -361,6 +361,7 @@ fn test_reputation_update_nonexistent_agent_panics() {
 #[test]
 fn test_deactivate_agent() {
     let env = create_test_env();
+    env.mock_all_auths();
     let contract_id = env.register_contract(None, RegistryContract);
     let client = RegistryContractClient::new(&env, &contract_id);
 
