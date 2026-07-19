@@ -5,7 +5,7 @@ use soroban_sdk::{
     String, Vec,
 };
 
-use crate::types::{Agent, DataKey, ProximaEvent};
+use crate::types::{Agent, DataKey};
 
 contractmeta!(
     key = "Description",
