@@ -1,7 +1,3 @@
-#![no_std]
-
-extern crate alloc;
-
 pub mod policy;
 pub mod registry;
 pub mod types;
