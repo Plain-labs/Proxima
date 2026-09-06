@@ -6,16 +6,17 @@ import {
   scValToNative,
   xdr,
   Keypair,
+  Transaction,
 } from '@stellar/stellar-sdk';
-import type { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc as SorobanRpc } from '@stellar/stellar-sdk';
 
+import { ProximaError, ErrorCodes } from './types';
 import type {
   SpendingPolicy,
   CreatePolicyParams,
   ExecutePaymentParams,
   PaymentRecord,
 } from './types';
-import { StellarMindError, ErrorCodes } from './types';
 import {
   ResolvedConfig,
   createRpcServer,
@@ -24,9 +25,9 @@ import {
 } from './stellar';
 
 /**
- * PolicyClient — interact with the StellarMind Spending Policy contract.
+ * PolicyClient — interact with the Proxima Spending Policy contract.
  *
- * This is the core of StellarMind's autonomous payment capability.
+ * This is the core of Proxima's autonomous payment capability.
  * It allows AI agents to make payments without per-transaction human approval,
  * within the boundaries defined by the policy owner.
  *
@@ -54,11 +55,38 @@ import {
  */
 export class PolicyClient {
   private rpc: SorobanRpc.Server;
-  private contract: Contract;
+  private _contract: Contract | null = null;
 
   constructor(private config: ResolvedConfig) {
     this.rpc = createRpcServer(config);
-    this.contract = new Contract(config.policyContractId);
+  }
+
+  /** Lazy contract accessor — validates the contract ID only when first used. */
+  private get contract(): Contract {
+    if (!this._contract) {
+      if (!this.config.policyContractId) {
+        throw new ProximaError(
+          'Policy contract ID is not configured for this network.',
+          ErrorCodes.CONTRACT_ERROR
+        );
+      }
+      this._contract = new Contract(this.config.policyContractId);
+    }
+    return this._contract;
+  }
+
+  /**
+   * Return total number of policies ever created on-chain.
+   */
+  async policyCount(): Promise<bigint> {
+    const result = await this.rpc.simulateTransaction(
+      this._buildSimulation('policy_count', [])
+    );
+    if (SorobanRpc.Api.isSimulationError(result)) return 0n;
+    const raw = scValToNative(
+      (result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result!.retval
+    );
+    return BigInt(raw as number);
   }
 
   // ─── Read Methods ───────────────────────────────────────────────────────────
@@ -72,7 +100,7 @@ export class PolicyClient {
     );
 
     if (SorobanRpc.Api.isSimulationError(result)) {
-      throw new StellarMindError(
+      throw new ProximaError(
         `Policy ${policyId} not found`,
         ErrorCodes.POLICY_NOT_FOUND,
         result.error
@@ -163,9 +191,87 @@ export class PolicyClient {
   }
 
   /**
+   * Build an unsigned create-policy transaction for browser-wallet signing.
+   *
+   * @param params          Policy creation parameters
+   * @param ownerPublicKey  Public key of the wallet that will sign
+   * @returns               Unsigned transaction XDR (base64)
+   */
+  async buildCreatePolicyTx(
+    params: CreatePolicyParams & { ownerPublicKey: string }
+  ): Promise<string> {
+    const account = await this.rpc.getAccount(params.ownerPublicKey);
+
+    const args = [
+      nativeToScVal(params.agent, { type: 'address' }),
+      nativeToScVal(toStroops(params.maxPerTx), { type: 'i128' }),
+      nativeToScVal(toStroops(params.dailyLimit), { type: 'i128' }),
+      nativeToScVal(params.asset, { type: 'string' }),
+      nativeToScVal(params.issuer, { type: 'address' }),
+      params.allowedRecipient
+        ? xdr.ScVal.scvVec([nativeToScVal(params.allowedRecipient, { type: 'address' })])
+        : xdr.ScVal.scvVec([]),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('create_policy', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    return (prepared as Transaction).toEnvelope().toXDR('base64');
+  }
+
+  /**
+   * Build an unsigned revoke-policy transaction for browser-wallet signing.
+   *
+   * @param policyId        Policy to revoke
+   * @param ownerPublicKey  Public key of the wallet that will sign
+   * @returns               Unsigned transaction XDR (base64)
+   */
+  async buildRevokePolicyTx(
+    policyId: bigint,
+    ownerPublicKey: string
+  ): Promise<string> {
+    const account = await this.rpc.getAccount(ownerPublicKey);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(
+        this.contract.call('revoke_policy', nativeToScVal(policyId, { type: 'u64' }))
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    return (prepared as Transaction).toEnvelope().toXDR('base64');
+  }
+
+  /**
+   * Submit a signed transaction XDR (returned by Freighter) to the network.
+   *
+   * @param signedXdr  Base64 XDR signed by Freighter
+   * @returns          Transaction hash
+   */
+  async submitSignedTx(signedXdr: string): Promise<string> {
+    const tx = TransactionBuilder.fromXDR(
+      signedXdr,
+      this.config.networkPassphrase
+    );
+    const response = await this.rpc.sendTransaction(tx);
+    await this._waitForConfirmation(response.hash);
+    return response.hash;
+  }
+
+  /**
    * Execute an autonomous payment under a spending policy.
    *
-   * This is the heart of StellarMind. The agent signs this transaction —
+   * This is the heart of Proxima. The agent signs this transaction —
    * the owner does NOT need to be present. The Soroban contract enforces
    * all spending limits on-chain.
    *
@@ -247,10 +353,10 @@ export class PolicyClient {
         return (status as SorobanRpc.Api.GetSuccessfulTransactionResponse).returnValue!;
       }
       if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
-        throw new StellarMindError('Transaction failed', ErrorCodes.CONTRACT_ERROR, status);
+        throw new ProximaError('Transaction failed', ErrorCodes.CONTRACT_ERROR, status);
       }
     }
-    throw new StellarMindError('Confirmation timeout', ErrorCodes.NETWORK_ERROR);
+    throw new ProximaError('Confirmation timeout', ErrorCodes.NETWORK_ERROR);
   }
 
   private _parsePolicy(raw: any): SpendingPolicy {

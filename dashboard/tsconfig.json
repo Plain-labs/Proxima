@@ -18,7 +18,12 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path alias so @proxima/sdk resolves to the local SDK source */
+    "paths": {
+      "@proxima/sdk": ["../sdk/src/index.ts"]
+    }
   },
   "include": ["src"]
 }

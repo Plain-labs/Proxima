@@ -1,265 +1,401 @@
-# StellarMind SDK Guide
+# Proxima SDK Guide
 
-This guide shows how to install `@stellarmind/sdk`, query the agent registry,
-register an agent, create bounded spending policies, and execute autonomous
-USDC payments on Stellar.
+The `@proxima/sdk` package is the primary way to interact with the Proxima
+contracts from any JavaScript or TypeScript project.
 
-## 1. Installation
+---
+
+## Installation
 
 ```bash
-npm install @stellarmind/sdk
+npm install @proxima/sdk
 # or
-yarn add @stellarmind/sdk
+yarn add @proxima/sdk
+# or
+pnpm add @proxima/sdk
 ```
 
-The SDK expects Node.js 18 or newer and uses `@stellar/stellar-sdk` for
-keypairs, RPC access, and transaction submission.
+Requires Node.js 18+.
 
-## 2. Quick Start
+---
 
-Use the registry client to fetch a known agent by ID:
+## Quick Start
 
 ```ts
-import { StellarMind } from '@stellarmind/sdk'
+import { Proxima, USDC_ISSUER } from '@proxima/sdk'
+import { Keypair } from '@stellar/stellar-sdk'
 
-const mind = new StellarMind({ network: 'testnet' })
+const proxima = new Proxima({ network: 'testnet' })
 
-const agent = await mind.registry.getAgent('flux-image-gen-v1')
+// Check how many agents are registered
+const count = await proxima.registry.agentCount()
+console.log(`${count} agents registered`)
 
-console.log(`${agent.name} - ${agent.priceDisplay} - ${agent.reputationDisplay}`)
+// Fetch a specific agent
+const agent = await proxima.registry.getAgent('gpt-inference-v2')
+console.log(agent.reputationDisplay) // "94.20%"
 ```
 
-`getAgent()` is a read-only call. It simulates a Soroban transaction and does
-not require a keypair.
+---
 
-## 3. Registering an Agent
+## Configuration
 
-Register an agent with a Stellar keypair that owns the registry entry:
+```ts
+const proxima = new Proxima({
+  network: 'testnet',          // 'mainnet' | 'testnet' | 'futurenet'
+
+  // Optional overrides — defaults to SDF public endpoints
+  rpcUrl: 'https://my-rpc.example.com',
+  horizonUrl: 'https://my-horizon.example.com',
+
+  // Override deployed contract IDs (useful for local dev)
+  registryContractId: 'C...',
+  policyContractId: 'C...',
+})
+```
+
+### Network defaults
+
+| Network | RPC | Horizon |
+|---|---|---|
+| `testnet` | `soroban-testnet.stellar.org` | `horizon-testnet.stellar.org` |
+| `mainnet` | `mainnet.stellar.validationcloud.io` | `horizon.stellar.org` |
+| `futurenet` | `rpc-futurenet.stellar.org` | `horizon-futurenet.stellar.org` |
+
+---
+
+## Registry Client
+
+Access via `proxima.registry`.
+
+### Read operations (free, no keypair needed)
+
+```ts
+// Get a single agent
+const agent = await proxima.registry.getAgent('my-agent-v1')
+
+// Check if an ID is taken (useful for registration forms)
+const taken = await proxima.registry.agentExists('my-agent-v1') // boolean
+
+// Total registered agents
+const count = await proxima.registry.agentCount() // bigint
+```
+
+### Write operations (require a keypair)
+
+#### Register an agent (server-side / CLI)
 
 ```ts
 import { Keypair } from '@stellar/stellar-sdk'
-import { StellarMind, USDC_ISSUER } from '@stellarmind/sdk'
+import { USDC_ISSUER } from '@proxima/sdk'
 
-const secret = process.env.STELLAR_SECRET_KEY
+const keypair = Keypair.fromSecret('S...')
 
-if (!secret) {
-  throw new Error('Set STELLAR_SECRET_KEY before registering an agent')
-}
-
-const mind = new StellarMind({ network: 'testnet' })
-const keypair = Keypair.fromSecret(secret)
-
-await mind.registry.register(
+const id = await proxima.registry.register(
   {
     id: 'my-agent-v1',
-    name: 'My AI Agent',
-    description: 'Summarizes long documents for other agents',
+    name: 'My Agent',
+    description: 'Does amazing things.',
     capabilities: ['text-generation', 'summarization'],
-    pricePerCall: '0.01',
+    pricePerCall: '0.005',           // in USDC (not stroops)
     paymentAsset: 'USDC',
     paymentIssuer: USDC_ISSUER.testnet,
-    endpointUrl: 'https://my-api.example.com/v1',
+    endpointUrl: 'https://my-api.com/v1', // optional
   },
   keypair
 )
+// id === 'my-agent-v1'
 ```
 
-Field reference:
+#### Register an agent (browser — Freighter wallet)
 
-- `id`: Stable unique ID used for lookups.
-- `name`: Human-readable display name.
-- `description`: Short explanation of what the agent does.
-- `capabilities`: Searchable task labels.
-- `pricePerCall`: Asset-unit price, such as `0.01` for 0.01 USDC.
-- `paymentAsset`: Asset code, usually `USDC` for agent payments.
-- `paymentIssuer`: Issuer address, commonly `USDC_ISSUER.testnet` or
-  `USDC_ISSUER.mainnet`.
-- `endpointUrl`: Optional service endpoint for the agent.
-
-## 4. Creating a Spending Policy
-
-A spending policy authorizes one agent to spend within strict limits:
+Use `buildRegisterTx` + `submitSignedTx` when you need the user's browser
+wallet (Freighter) to sign the transaction instead of a raw keypair.
 
 ```ts
-import { Keypair } from '@stellar/stellar-sdk'
-import { StellarMind, USDC_ISSUER } from '@stellarmind/sdk'
+// 1. Build the unsigned transaction XDR
+const unsignedXdr = await proxima.registry.buildRegisterTx({
+  id: 'my-agent-v1',
+  name: 'My Agent',
+  description: 'Does amazing things.',
+  capabilities: ['text-generation', 'summarization'],
+  pricePerCall: '0.005',
+  paymentAsset: 'USDC',
+  paymentIssuer: USDC_ISSUER.testnet,
+  ownerPublicKey: freighter.publicKey,  // connected wallet
+})
 
-const ownerSecret = process.env.STELLAR_OWNER_SECRET_KEY
-const agentPublicKey = process.env.STELLAR_AGENT_PUBLIC_KEY
+// 2. Ask Freighter to sign
+const { signedTxXdr } = await window.freighter.signTransaction(unsignedXdr)
 
-if (!ownerSecret || !agentPublicKey) {
-  throw new Error('Set STELLAR_OWNER_SECRET_KEY and STELLAR_AGENT_PUBLIC_KEY')
-}
+// 3. Submit to the network
+const txHash = await proxima.registry.submitSignedTx(signedTxXdr)
+console.log('Registered! TX:', txHash)
+```
 
-const mind = new StellarMind({ network: 'testnet' })
-const ownerKeypair = Keypair.fromSecret(ownerSecret)
+#### Update an agent
 
-const policyId = await mind.policy.create(
+```ts
+await proxima.registry.updateAgent(
+  'my-agent-v1',
   {
-    agent: agentPublicKey,
-    maxPerTx: '0.50',
-    dailyLimit: '10.00',
+    name: 'My Agent v2',
+    description: 'Updated description.',
+    capabilities: ['text-generation', 'summarization', 'translation'],
+    pricePerCall: '0.008',
+    isActive: true,
+    endpointUrl: 'https://my-api.com/v2',
+  },
+  keypair   // must be the original owner
+)
+```
+
+#### Submit a reputation rating
+
+```ts
+// Rate 0–10000. 10000 = 100.00%, 5000 = 50.00%, 0 = 0.00%
+await proxima.registry.updateReputation('my-agent-v1', 9500, keypair)
+```
+
+#### Deactivate an agent
+
+```ts
+await proxima.registry.deactivate('my-agent-v1', keypair)
+```
+
+---
+
+## Policy Client
+
+Access via `proxima.policy`.
+
+### Read operations
+
+```ts
+// Get policy details
+const policy = await proxima.policy.getPolicy(1n)
+console.log(policy.isActive)        // boolean
+console.log(policy.agent)           // Stellar address string
+
+// Check if an agent is authorised under a policy
+const ok = await proxima.policy.isAuthorized(1n, agentAddress) // boolean
+
+// Remaining daily allowance in stroops
+const remaining = await proxima.policy.remainingAllowance(1n) // bigint
+
+// Remaining as a human-readable string
+const display = await proxima.policy.remainingAllowanceDisplay(1n)
+// "8.5000000 USDC"
+```
+
+### Write operations
+
+#### Create a spending policy (server-side / CLI)
+
+```ts
+const policyId = await proxima.policy.create(
+  {
+    agent: 'GDAG...',          // agent's Stellar address
+    maxPerTx: '0.50',          // max per single tx (in USDC)
+    dailyLimit: '10.00',       // max per day (in USDC)
     asset: 'USDC',
     issuer: USDC_ISSUER.testnet,
+    allowedRecipient: 'GXYZ...',  // optional: restrict to one recipient
   },
   ownerKeypair
 )
-
-console.log(`Policy created: ${policyId}`)
+// policyId === 1n
 ```
 
-The owner signs policy creation. Later payments are signed by the authorized
-agent, while the contract enforces `maxPerTx`, `dailyLimit`, `asset`, and
-`issuer`.
-
-## 5. Executing an Autonomous Payment
-
-The authorized agent signs the payment execution:
+#### Create a spending policy (browser — Freighter wallet)
 
 ```ts
-import { Keypair } from '@stellar/stellar-sdk'
-import { StellarMind } from '@stellarmind/sdk'
+// 1. Build the unsigned transaction XDR
+const unsignedXdr = await proxima.policy.buildCreatePolicyTx({
+  agent: agentAddress,
+  maxPerTx: '0.50',
+  dailyLimit: '10.00',
+  asset: 'USDC',
+  issuer: USDC_ISSUER.testnet,
+  ownerPublicKey: freighter.publicKey,
+})
 
-const agentSecret = process.env.STELLAR_AGENT_SECRET_KEY
-const recipient = process.env.STELLAR_RECIPIENT_PUBLIC_KEY
+// 2. Sign with Freighter
+const { signedTxXdr } = await window.freighter.signTransaction(unsignedXdr)
 
-if (!agentSecret || !recipient) {
-  throw new Error('Set STELLAR_AGENT_SECRET_KEY and STELLAR_RECIPIENT_PUBLIC_KEY')
-}
+// 3. Submit
+const txHash = await proxima.policy.submitSignedTx(signedTxXdr)
+```
 
-const mind = new StellarMind({ network: 'testnet' })
-const agentKeypair = Keypair.fromSecret(agentSecret)
+#### Revoke a policy (browser — Freighter wallet)
 
-const record = await mind.policy.executePayment(
+```ts
+const unsignedXdr = await proxima.policy.buildRevokePolicyTx(
+  policyId,           // bigint policy ID
+  freighter.publicKey
+)
+const { signedTxXdr } = await window.freighter.signTransaction(unsignedXdr)
+await proxima.policy.submitSignedTx(signedTxXdr)
+```
+
+#### Execute an autonomous payment
+
+The owner does NOT need to sign this. The agent signs.
+
+```ts
+const record = await proxima.policy.executePayment(
   {
     policyId: 1n,
-    recipient,
-    amount: '0.01',
-    memo: 'Payment for image generation job #8821',
+    recipient: 'GXYZ...',
+    amount: '0.01',            // in USDC
+    memo: 'API call #4821',
   },
-  agentKeypair
+  agentKeypair  // ← agent signs, not owner
 )
-
-console.log(`Paid ${record.amount} stroops on ledger ${record.ledger}`)
+console.log(record.amount)  // bigint in stroops
 ```
 
-The policy owner is not needed at payment time. If the amount exceeds the
-per-transaction or daily limit, the contract rejects the payment.
-
-## 6. Checking Remaining Allowance
-
-Read the remaining daily allowance for a policy:
+#### Revoke a policy
 
 ```ts
-import { StellarMind } from '@stellarmind/sdk'
-
-const mind = new StellarMind({ network: 'testnet' })
-
-const remaining = await mind.policy.remainingAllowanceDisplay(1n)
-
-console.log(remaining)
+await proxima.policy.revoke(1n, ownerKeypair)
 ```
 
-The display helper returns a string such as `8.5000000 USDC`.
+---
 
-## 7. Error Handling
-
-The SDK exports `StellarMindError` and `ErrorCodes` so callers can branch on
-typed error codes:
+## Unit Conversion
 
 ```ts
-import { ErrorCodes, StellarMind, StellarMindError } from '@stellarmind/sdk'
+import { toStroops, fromStroops, formatReputation } from '@proxima/sdk'
 
-const mind = new StellarMind({ network: 'testnet' })
+toStroops('1.50')           // 15_000_000n
+fromStroops(15_000_000n)    // "1.5000000"
+formatReputation(9420)       // "94.20%"
+```
+
+1 USDC = 10,000,000 stroops. All contract amounts are in stroops internally.
+
+---
+
+## Error Handling
+
+All SDK errors are instances of `ProximaError` with a typed `code` field.
+
+```ts
+import { ProximaError, ErrorCodes } from '@proxima/sdk'
 
 try {
-  const agent = await mind.registry.getAgent('unknown-id')
-  console.log(agent.name)
+  await proxima.registry.getAgent('does-not-exist')
 } catch (err) {
-  if (err instanceof StellarMindError) {
+  if (err instanceof ProximaError) {
     switch (err.code) {
       case ErrorCodes.AGENT_NOT_FOUND:
-        console.log('Agent does not exist')
+        console.log('Agent not found')
         break
       case ErrorCodes.NETWORK_ERROR:
-        console.log('Could not reach Stellar RPC:', err.message)
-        break
-      case ErrorCodes.EXCEEDS_DAILY_LIMIT:
-        console.log('Daily spending limit reached')
+        console.log('RPC connection failed')
         break
       default:
-        console.log('StellarMind SDK error:', err.message)
+        console.log('Contract error:', err.message)
     }
-  } else {
-    throw err
   }
 }
 ```
 
-## 8. Network Configuration
+### Error codes
 
-Use the public defaults for supported networks:
+| Code | When thrown |
+|---|---|
+| `AGENT_NOT_FOUND` | `getAgent` called with unknown ID |
+| `AGENT_ALREADY_EXISTS` | `register` called with a duplicate ID |
+| `POLICY_NOT_FOUND` | `getPolicy` / `executePayment` with unknown policy ID |
+| `POLICY_INACTIVE` | `executePayment` on a revoked policy |
+| `EXCEEDS_PER_TX_LIMIT` | Payment amount > `max_per_tx` |
+| `EXCEEDS_DAILY_LIMIT` | `spent_today + amount > daily_limit` |
+| `UNAUTHORIZED` | Caller is not the owner/agent |
+| `NETWORK_ERROR` | RPC connection or timeout issue |
+| `CONTRACT_ERROR` | Generic Soroban contract error |
 
-```ts
-import { StellarMind } from '@stellarmind/sdk'
+---
 
-const testnetMind = new StellarMind({ network: 'testnet' })
-const mainnetMind = new StellarMind({ network: 'mainnet' })
-const futurenetMind = new StellarMind({ network: 'futurenet' })
+## Running Tests
+
+```bash
+# From the sdk/ directory
+bun test
+
+# With coverage
+bun test --coverage
 ```
 
-You can override the RPC or Horizon URL when running against custom
-infrastructure:
+The test suite covers unit tests for all pure utility functions, error types,
+and client instantiation (39 tests). Network-dependent methods (RPC calls)
+are not mocked in the unit suite — use integration tests against a local
+Stellar sandbox for those.
+
+---
+
+## React Hooks (Dashboard)
+
+If you are building a React app, the dashboard's hooks are a good reference:
 
 ```ts
-import { StellarMind } from '@stellarmind/sdk'
+// dashboard/src/hooks/useRegistry.ts
+import { useAgent, useAgentCount, useAgentExists } from './hooks/useRegistry'
 
-const mind = new StellarMind({
-  network: 'testnet',
-  rpcUrl: 'https://my-custom-rpc.example.com',
-  horizonUrl: 'https://my-custom-horizon.example.com',
-})
+// dashboard/src/hooks/usePolicy.ts
+import { usePolicy, useRemainingAllowance } from './hooks/usePolicy'
 ```
 
-You can also override contract IDs when testing a new deployment:
+---
+
+## TypeScript Types
+
+All public types are exported from the package root:
 
 ```ts
-import { StellarMind } from '@stellarmind/sdk'
-
-const mind = new StellarMind({
-  network: 'testnet',
-  registryContractId: 'CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R',
-  policyContractId: 'CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ',
-})
+import type {
+  Agent,
+  RegisterAgentParams,
+  FindAgentsParams,
+  SpendingPolicy,
+  CreatePolicyParams,
+  ExecutePaymentParams,
+  PaymentRecord,
+  ProximaConfig,
+  Network,
+  ProximaEvent,
+} from '@proxima/sdk'
 ```
 
-## 9. TypeScript Types Reference
+---
 
-The SDK exports these public types from `sdk/src/index.ts`:
+## x402 Integration
 
-| Type | Description |
-| --- | --- |
-| `Agent` | Full registry record returned by `registry.getAgent()` or indexed registry search. |
-| `RegisterAgentParams` | Input shape for `registry.register()`. |
-| `FindAgentsParams` | Filter shape for future indexed `registry.find()` queries. |
-| `SpendingPolicy` | Full spending-policy record returned by `policy.getPolicy()`. |
-| `CreatePolicyParams` | Input shape for `policy.create()`. |
-| `ExecutePaymentParams` | Input shape for `policy.executePayment()`. |
-| `PaymentRecord` | Payment execution record returned by `policy.executePayment()`. |
-| `StellarMindConfig` | Constructor configuration for `new StellarMind(...)`. |
-| `Network` | Supported network union: `mainnet`, `testnet`, or `futurenet`. |
-| `StellarMindEvent` | Event envelope shape for registry and policy state changes. |
+Proxima's `SpendingPolicy` is designed for x402 autonomous payment flows:
 
-The SDK also exports these classes and helpers:
+```ts
+// Pseudocode: handle a 402 Payment Required response
+async function callWithPayment(url: string, policyId: bigint, agentKeypair: Keypair) {
+  const response = await fetch(url)
 
-| Export | Description |
-| --- | --- |
-| `StellarMind` | Main SDK facade exposing `registry` and `policy` clients. |
-| `RegistryClient` | Low-level registry client. |
-| `PolicyClient` | Low-level spending-policy client. |
-| `USDC_ISSUER` | Network-to-issuer mapping for Stellar USDC. |
-| `toStroops` | Converts asset-unit strings to seven-decimal stroop values. |
-| `fromStroops` | Converts stroop values back to asset-unit display strings. |
-| `formatReputation` | Formats integer reputation scores as percentages. |
-| `StellarMindError` | SDK error class with a stable `code` field. |
-| `ErrorCodes` | Public error-code constants for registry, policy, network, and contract failures. |
+  if (response.status === 402) {
+    const paymentHeader = response.headers.get('X-Payment')
+    const { amount, recipient } = parsePaymentHeader(paymentHeader)
+
+    // Agent pays autonomously — no owner involvement needed
+    await proxima.policy.executePayment(
+      { policyId, recipient, amount, memo: `x402: ${url}` },
+      agentKeypair
+    )
+
+    // Retry original request
+    return fetch(url, { headers: { 'X-Payment-Proof': '...' } })
+  }
+
+  return response
+}
+```
+
+The spending policy enforces that no runaway spending can occur even if the
+agent is compromised or the remote service sends an inflated price.

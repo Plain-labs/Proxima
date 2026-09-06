@@ -852,6 +852,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "proxima-contracts"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "stellar-strkey",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1340,14 +1348,6 @@ dependencies = [
  "hex",
  "serde",
  "serde_with",
- "stellar-strkey",
-]
-
-[[package]]
-name = "stellarmind-contracts"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
  "stellar-strkey",
 ]
 

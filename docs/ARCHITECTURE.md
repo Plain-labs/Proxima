@@ -1,8 +1,8 @@
-# StellarMind Architecture
+# Proxima Architecture
 
 ## Overview
 
-StellarMind is structured as a three-layer system where each layer has a clear responsibility and clean interfaces to the others.
+Proxima is structured as a three-layer system where each layer has a clear responsibility and clean interfaces to the others.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -12,7 +12,7 @@ StellarMind is structured as a three-layer system where each layer has a clear r
                              │ TypeScript SDK
 ┌────────────────────────────▼───────────────────────────────────┐
 │                      SDK LAYER                                 │
-│            @stellarmind/sdk (TypeScript / Node.js)             │
+│            @Proxima/sdk (TypeScript / Node.js)             │
 │     RegistryClient          PolicyClient          Utils        │
 └──────────────┬──────────────────────────┬─────────────────────┘
                │ Stellar RPC              │ Stellar RPC
@@ -96,13 +96,13 @@ Only write operations (register, createPolicy, executePayment) require a keypair
 
 ### Error Hierarchy
 
-The SDK uses a typed `StellarMindError` class with a `code` string field rather than raw Error objects:
+The SDK uses a typed `ProximaError` class with a `code` string field rather than raw Error objects:
 
 ```ts
 try {
   await mind.registry.getAgent('unknown-id')
 } catch (err) {
-  if (err instanceof StellarMindError && err.code === ErrorCodes.AGENT_NOT_FOUND) {
+  if (err instanceof ProximaError && err.code === ErrorCodes.AGENT_NOT_FOUND) {
     // handle gracefully
   }
 }
@@ -135,7 +135,7 @@ These events are designed to be indexed by services like **Mercury** or a custom
 
 ## x402 Integration
 
-StellarMind's SpendingPolicy is designed to be x402-compatible. In an x402 flow:
+Proxima's SpendingPolicy is designed to be x402-compatible. In an x402 flow:
 
 1. Agent receives a `402 Payment Required` response from a resource server
 2. Agent reads the price from the `X-Payment` header

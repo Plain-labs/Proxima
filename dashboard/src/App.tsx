@@ -3,8 +3,18 @@ import AgentExplorer from "./components/AgentExplorer";
 import PolicyManager from "./components/PolicyManager";
 import RegisterAgent from "./components/RegisterAgent";
 import ActivityFeed from "./components/ActivityFeed";
+import WalletConnect from "./components/WalletConnect";
+import ProximaLogo from "./components/ProximaLogo";
+import { useAgentCount } from "./hooks/useRegistry";
+import { usePolicyCount } from "./hooks/usePolicy";
 
 type Tab = "explore" | "register" | "policies" | "activity";
+
+/** Passed from AgentExplorer → App → PolicyManager to pre-fill the create form */
+export interface PolicyPrefill {
+  agentId: string;
+  agentName: string;
+}
 
 const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "explore", label: "Agent Explorer", icon: "⚡" },
@@ -13,16 +23,34 @@ const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "activity", label: "Activity Feed", icon: "📡" },
 ];
 
-// Mock stats for demonstration
-const STATS = [
-  { label: "Registered Agents", value: "148", delta: "+12 this week" },
-  { label: "Active Policies", value: "2,341", delta: "+89 today" },
-  { label: "USDC Transacted", value: "$48,291", delta: "last 24h" },
-  { label: "Avg Reputation", value: "87.4%", delta: "across all agents" },
-];
-
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("explore");
+  const [policyPrefill, setPolicyPrefill] = useState<PolicyPrefill | null>(null);
+
+  // Live on-chain stats — fall back to "–" while loading
+  const { count: agentCount, loading: agentCountLoading } = useAgentCount();
+  const { count: policyCount, loading: policyCountLoading } = usePolicyCount();
+
+  const STATS = [
+    {
+      label: "Registered Agents",
+      value: agentCountLoading ? "–" : agentCount.toLocaleString(),
+      delta: "on-chain total",
+    },
+    {
+      label: "Total Policies",
+      value: policyCountLoading ? "–" : policyCount.toLocaleString(),
+      delta: "on-chain total",
+    },
+    { label: "USDC Transacted", value: "$48,291", delta: "last 24h" },
+    { label: "Avg Reputation", value: "87.4%", delta: "across all agents" },
+  ];
+
+  /** Navigate to Policy Manager with agent pre-filled */
+  const handleCreatePolicy = (agentId: string, agentName: string) => {
+    setPolicyPrefill({ agentId, agentName });
+    setActiveTab("policies");
+  };
 
   return (
     <div style={{
@@ -70,24 +98,7 @@ export default function App() {
           height: "64px",
         }}>
           {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{
-              width: "36px", height: "36px",
-              background: "linear-gradient(135deg, #00c8ff 0%, #7830ff 100%)",
-              borderRadius: "8px",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "18px", fontWeight: "bold",
-              boxShadow: "0 0 20px rgba(0,200,255,0.4)",
-            }}>S</div>
-            <div>
-              <div style={{ fontSize: "16px", fontWeight: "700", letterSpacing: "0.05em", color: "#fff" }}>
-                STELLARMIND
-              </div>
-              <div style={{ fontSize: "10px", color: "rgba(0,200,255,0.7)", letterSpacing: "0.15em" }}>
-                AI AGENT REGISTRY
-              </div>
-            </div>
-          </div>
+          <ProximaLogo size={40} showWordmark={true} />
 
           {/* Nav */}
           <nav style={{ display: "flex", gap: "4px" }}>
@@ -119,25 +130,28 @@ export default function App() {
             ))}
           </nav>
 
-          {/* Network badge */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            padding: "6px 14px",
-            background: "rgba(0,255,120,0.08)",
-            border: "1px solid rgba(0,255,120,0.2)",
-            borderRadius: "20px",
-            fontSize: "11px",
-            color: "#00ff78",
-            letterSpacing: "0.1em",
-          }}>
-            <span style={{
-              width: "6px", height: "6px",
-              background: "#00ff78",
-              borderRadius: "50%",
-              boxShadow: "0 0 8px #00ff78",
-              animation: "pulse 2s infinite",
-            }} />
-            STELLAR TESTNET
+          {/* Network badge + wallet */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: "8px",
+              padding: "6px 14px",
+              background: "rgba(0,255,120,0.08)",
+              border: "1px solid rgba(0,255,120,0.2)",
+              borderRadius: "20px",
+              fontSize: "11px",
+              color: "#00ff78",
+              letterSpacing: "0.1em",
+            }}>
+              <span style={{
+                width: "6px", height: "6px",
+                background: "#00ff78",
+                borderRadius: "50%",
+                boxShadow: "0 0 8px #00ff78",
+                animation: "pulse 2s infinite",
+              }} />
+              STELLAR TESTNET
+            </div>
+            <WalletConnect />
           </div>
         </div>
       </header>
@@ -179,9 +193,14 @@ export default function App() {
         maxWidth: "1400px", margin: "0 auto",
         padding: "2rem",
       }}>
-        {activeTab === "explore" && <AgentExplorer />}
+        {activeTab === "explore" && <AgentExplorer onCreatePolicy={handleCreatePolicy} />}
         {activeTab === "register" && <RegisterAgent />}
-        {activeTab === "policies" && <PolicyManager />}
+        {activeTab === "policies" && (
+          <PolicyManager
+            prefill={policyPrefill}
+            onPrefillConsumed={() => setPolicyPrefill(null)}
+          />
+        )}
         {activeTab === "activity" && <ActivityFeed />}
       </main>
 

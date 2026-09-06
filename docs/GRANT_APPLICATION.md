@@ -1,11 +1,11 @@
-# StellarMind — Grant Application
+# Proxima — Grant Application
 
 > Use this document as the basis for applications to GrantFox, Stellar Wave / Drips, and SCF Build Awards.
 
 ---
 
 ## Project Name
-**StellarMind — AI Agent Registry & Autonomous Payment Gateway**
+**Proxima — AI Agent Registry & Autonomous Payment Gateway**
 
 ---
 
@@ -26,13 +26,13 @@ Every platform that hosts AI agents (OpenAI, Anthropic, etc.) is a walled garden
 **2. No programmable autonomous payment layer.**
 Stellar's x402 payment protocol enables agents to respond to payment challenges. But the protocol requires that each payment be authorized by a human signer. This fundamentally breaks autonomous agent workflows where an orchestrator might make hundreds of micro-payments per hour. There is no existing open-source solution on Stellar for delegated, policy-bounded autonomous spending.
 
-**StellarMind solves both problems with production-grade open-source infrastructure.**
+**Proxima solves both problems with production-grade open-source infrastructure.**
 
 ---
 
 ## Solution
 
-StellarMind delivers three interconnected components:
+Proxima delivers three interconnected components:
 
 ### 1. Agent Registry (Soroban Smart Contract)
 A permissionless on-chain registry where AI agents are published with verifiable metadata: capabilities, pricing, reputation score, and owner wallet. Fully queryable by any Stellar developer.
@@ -69,7 +69,7 @@ This is not a project where Stellar is an afterthought. Stellar is the *only* vi
 - **5-second finality** makes real-time agent-to-agent payments practical
 - **USDC as a native asset** eliminates bridging risk and complexity
 - **Soroban** provides the programmable policy enforcement layer
-- **x402** is Stellar's own standard for agentic payment flows — StellarMind extends it
+- **x402** is Stellar's own standard for agentic payment flows — Proxima extends it
 
 No other chain combines all four of these properties.
 
@@ -77,10 +77,10 @@ No other chain combines all four of these properties.
 
 ## Open Source Commitment
 
-StellarMind is and will remain fully open source under the MIT license:
+Proxima is and will remain fully open source under the MIT license:
 
 - All Soroban contracts are publicly auditable
-- The SDK is published to npm as `@stellarmind/sdk`
+- The SDK is published to npm as `@Proxima/sdk`
 - The dashboard is deployable by anyone
 - All issues are publicly labeled for community contribution
 - Contributor guidelines are thorough and welcoming to new Stellar developers
@@ -101,7 +101,7 @@ StellarMind is and will remain fully open source under the MIT license:
 
 ## Contributor Opportunities
 
-StellarMind has been designed from the ground up for community contribution. Labeled GitHub issues cover:
+Proxima has been designed from the ground up for community contribution. Labeled GitHub issues cover:
 
 - 🔵 Soroban: add batch registration, add contract upgrade path, add on-chain agent reviews
 - 🟣 SDK: implement find() with indexer, add event subscription, add React hooks package
@@ -109,18 +109,18 @@ StellarMind has been designed from the ground up for community contribution. Lab
 - 📖 Docs: write SDK quickstart guide, write x402 integration tutorial
 - 🟢 Good First Issues: add missing TypeScript types, improve error messages, add loading states to dashboard
 
-Every issue is scoped with acceptance criteria, relevant files listed, and estimated effort. This makes StellarMind an excellent project for Stellar Wave contributors to pick up issues and earn rewards.
+Every issue is scoped with acceptance criteria, relevant files listed, and estimated effort. This makes Proxima an excellent project for Stellar Wave contributors to pick up issues and earn rewards.
 
 ---
 
 ## Team
 
-StellarMind is a community project. The initial architecture and codebase was developed by contributors passionate about making Stellar the home of the AI agent economy. We are actively seeking co-maintainers with experience in Rust/Soroban, TypeScript, and React.
+Proxima is a community project. The initial architecture and codebase was developed by contributors passionate about making Stellar the home of the AI agent economy. We are actively seeking co-maintainers with experience in Rust/Soroban, TypeScript, and React.
 
 ---
 
 ## Links
 
-- **GitHub:** https://github.com/IyanuOluwJesuloba/stellarmind
+- **GitHub:** https://github.com/IyanuOluwJesuloba/Proxima
 - **License:** MIT
 - **Contact:** jesulobaowoseni1@gmail.com
