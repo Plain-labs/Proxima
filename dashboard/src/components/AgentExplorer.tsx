@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAgents, MOCK_AGENTS } from "../hooks/useRegistry";
 import type { MockAgent } from "../hooks/useRegistry";
+import ReputationSparkline from "./ReputationSparkline";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,10 +38,37 @@ function ReputationBar({ score }: { score: number }) {
   );
 }
 
+// ─── Mock history generator ──────────────────────────────────────────────────
+// Generates a plausible 20-point reputation history ending at `currentScore`.
+// Older agents (high totalCalls) have tighter variance; newer agents are noisier.
+function generateMockHistory(currentScore: number, totalCalls: number): number[] {
+  const COUNT = 20;
+  const stability = Math.min(totalCalls / 5000, 1); // 0 → 1 as calls grow
+  const maxNoise = (1 - stability) * 800 + 80;      // score units (0–10 000 scale)
+
+  // We work backwards from currentScore, adding cumulative drift
+  const points: number[] = [currentScore];
+  let cursor = currentScore;
+
+  for (let i = 1; i < COUNT; i++) {
+    // Each step back can drift slightly further from the final score
+    const noise = (Math.random() - 0.48) * maxNoise; // slight upward bias
+    cursor = Math.max(0, Math.min(10000, cursor - noise));
+    points.unshift(cursor);
+  }
+
+  return points;
+}
+
 // ─── AgentCard ────────────────────────────────────────────────────────────────
 
 function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
+  // History generated once on first expand and kept stable across re-renders
+  const historyRef = useRef<number[] | null>(null);
+  if (expanded && !historyRef.current) {
+    historyRef.current = generateMockHistory(agent.reputation, agent.totalCalls);
+  }
 
   return (
     <div
@@ -146,92 +174,152 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
         </div>
 
         {/* Expanded details */}
-        {expanded && (
-          <div style={{
-            marginTop: "16px",
-            padding: "14px",
-            background: "rgba(0,0,0,0.3)",
-            borderRadius: "6px",
-            animation: "fadeIn 0.2s ease",
-          }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
-              {[
-                { label: "TOTAL CALLS", value: agent.totalCalls.toLocaleString() },
-                { label: "REGISTERED", value: agent.registeredAt },
-                { label: "OWNER", value: agent.owner },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <div style={{
-                    fontSize: "9px", color: "rgba(226,232,240,0.3)",
-                    letterSpacing: "0.12em",
-                  }}>
-                    {label}
+        {expanded && (() => {
+          const history = historyRef.current!;
+          const last = history[history.length - 1];
+          const weekSlice = history.slice(-5); // approximate "this week"
+          const weekDelta = weekSlice[weekSlice.length - 1] - weekSlice[0];
+          const weekPct = ((weekDelta / (weekSlice[0] || 1)) * 100).toFixed(1);
+          const isUp = weekDelta > 0;
+          const isDown = weekDelta < 0;
+          const trendArrow = isUp ? "↑" : isDown ? "↓" : "→";
+          const trendColor = isUp ? "#00ff78" : isDown ? "#ff4060" : "#00c8ff";
+          const trendLabel = `${trendArrow} ${isDown ? "" : "+"}${weekPct}% this week`;
+          const currentPct = (last / 100).toFixed(2);
+
+          return (
+            <div style={{
+              marginTop: "16px",
+              padding: "14px",
+              background: "rgba(0,0,0,0.3)",
+              borderRadius: "6px",
+              animation: "fadeIn 0.2s ease",
+            }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+                {[
+                  { label: "TOTAL CALLS", value: agent.totalCalls.toLocaleString() },
+                  { label: "REGISTERED", value: agent.registeredAt },
+                  { label: "OWNER", value: agent.owner },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <div style={{
+                      fontSize: "9px", color: "rgba(226,232,240,0.3)",
+                      letterSpacing: "0.12em",
+                    }}>
+                      {label}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#e2e8f0", marginTop: "4px" }}>
+                      {value}
+                    </div>
                   </div>
-                  <div style={{ fontSize: "12px", color: "#e2e8f0", marginTop: "4px" }}>
-                    {value}
+                ))}
+              </div>
+
+              {/* ── Reputation sparkline ── */}
+              <div
+                style={{
+                  marginTop: "14px",
+                  padding: "12px",
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  borderRadius: "6px",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{
+                  fontSize: "9px", color: "rgba(226,232,240,0.3)",
+                  letterSpacing: "0.12em", marginBottom: "10px",
+                }}>
+                  REPUTATION HISTORY (last 30 interactions)
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                  {/* Sparkline stretches to fill available space */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <ReputationSparkline
+                      history={history}
+                      width={300}
+                      height={44}
+                    />
+                  </div>
+
+                  {/* Score + trend label */}
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{
+                      fontSize: "14px", fontWeight: "700",
+                      color: trendColor, lineHeight: 1,
+                    }}>
+                      {currentPct}%
+                    </div>
+                    <div style={{
+                      fontSize: "10px", color: trendColor,
+                      opacity: 0.75, marginTop: "4px",
+                    }}>
+                      {trendLabel}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            {/* Action buttons */}
-            <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
-              {agent.isActive && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCreatePolicy(agent.id, agent.name);
-                  }}
+              {/* Action buttons */}
+              <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+                {agent.isActive && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreatePolicy(agent.id, agent.name);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "8px 16px",
+                      background: "linear-gradient(135deg, rgba(0,200,255,0.15), rgba(120,48,255,0.15))",
+                      border: "1px solid rgba(0,200,255,0.3)",
+                      borderRadius: "6px",
+                      color: "#00c8ff",
+                      cursor: "pointer",
+                      fontSize: "11px",
+                      fontFamily: "inherit",
+                      letterSpacing: "0.08em",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        "linear-gradient(135deg, rgba(0,200,255,0.25), rgba(120,48,255,0.25))";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        "linear-gradient(135deg, rgba(0,200,255,0.15), rgba(120,48,255,0.15))";
+                    }}
+                  >
+                    🔐 CREATE SPENDING POLICY →
+                  </button>
+                )}
+                <a
+                  href={`https://stellar.expert/explorer/testnet/contract/${agent.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   style={{
-                    flex: 1,
-                    padding: "8px 16px",
-                    background: "linear-gradient(135deg, rgba(0,200,255,0.15), rgba(120,48,255,0.15))",
-                    border: "1px solid rgba(0,200,255,0.3)",
+                    padding: "8px 14px",
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
                     borderRadius: "6px",
-                    color: "#00c8ff",
-                    cursor: "pointer",
+                    color: "rgba(226,232,240,0.35)",
                     fontSize: "11px",
                     fontFamily: "inherit",
-                    letterSpacing: "0.08em",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                      "linear-gradient(135deg, rgba(0,200,255,0.25), rgba(120,48,255,0.25))";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                      "linear-gradient(135deg, rgba(0,200,255,0.15), rgba(120,48,255,0.15))";
+                    letterSpacing: "0.06em",
+                    textDecoration: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
                   }}
                 >
-                  🔐 CREATE SPENDING POLICY →
-                </button>
-              )}
-              <a
-                href={`https://stellar.expert/explorer/testnet/contract/${agent.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  padding: "8px 14px",
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: "6px",
-                  color: "rgba(226,232,240,0.35)",
-                  fontSize: "11px",
-                  fontFamily: "inherit",
-                  letterSpacing: "0.06em",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                ↗ EXPLORER
-              </a>
+                  ↗ EXPLORER
+                </a>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
