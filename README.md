@@ -2,7 +2,8 @@
 
 **Open-source AI Agent Registry & Autonomous Payment Gateway on Stellar**.
 
-Live Link: https://nullius-taupe.vercel.app/
+Live Link: https://proxima-beryl.vercel.app/
+
 
 Contract Address-
 
