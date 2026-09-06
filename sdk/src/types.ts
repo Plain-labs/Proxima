@@ -1,8 +1,8 @@
-// ─── StellarMind SDK Types ───────────────────────────────────────────────────
+// ─── Proxima SDK Types ───────────────────────────────────────────────────────
 
 export type Network = 'mainnet' | 'testnet' | 'futurenet';
 
-export interface StellarMindConfig {
+export interface ProximaConfig {
   network: Network;
   /** Custom RPC URL (optional — defaults to SDF public RPC) */
   rpcUrl?: string;
@@ -46,7 +46,17 @@ export interface RegisterAgentParams {
   /** Price per call in asset units (e.g. "0.01" for 0.01 USDC) */
   pricePerCall: string;
   paymentAsset: 'USDC' | 'XLM' | string;
-  paymentIssuer: string;
+  paymentIssuer?: string;
+  endpointUrl?: string;
+}
+
+export interface UpdateAgentParams {
+  name: string;
+  description: string;
+  capabilities: string[];
+  /** New price per call in asset units (e.g. "0.02") */
+  pricePerCall: string;
+  isActive: boolean;
   endpointUrl?: string;
 }
 
@@ -113,7 +123,7 @@ export interface PaymentRecord {
 
 // ─── Event Types ─────────────────────────────────────────────────────────────
 
-export interface StellarMindEvent {
+export interface ProximaEvent {
   type:
     | 'AgentRegistered'
     | 'AgentUpdated'
@@ -130,14 +140,14 @@ export interface StellarMindEvent {
 
 // ─── Error Types ─────────────────────────────────────────────────────────────
 
-export class StellarMindError extends Error {
+export class ProximaError extends Error {
   constructor(
     message: string,
     public readonly code: string,
     public readonly details?: unknown
   ) {
     super(message);
-    this.name = 'StellarMindError';
+    this.name = 'ProximaError';
   }
 }
 

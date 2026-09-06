@@ -1,0 +1,44 @@
+# ─── Rust / Cargo ─────────────────────────────────────────────────────────────
+contracts/target/
+**/*.rs.bk
+Cargo.lock          # only ignore at workspace root if desired; keep contracts/Cargo.lock
+
+# ─── Node / Bun ───────────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+bun.lockb           # regenerated automatically
+
+# ─── Build output ─────────────────────────────────────────────────────────────
+dist/
+build/
+**/dist/
+**/build/
+
+# ─── TypeScript ───────────────────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── Environment & secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Editors & OS ─────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ─── Test & coverage ──────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

@@ -1,6 +1,15 @@
-# StellarMind 🧠⚡
+# Proxima 🧠⚡
 
-**Open-source AI Agent Registry & Autonomous Payment Gateway on Stellar**
+**Open-source AI Agent Registry & Autonomous Payment Gateway on Stellar**.
+
+Live Link: https://proxima-beryl.vercel.app/
+
+
+Contract Address-
+
+Registry: CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R
+
+Policy: CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Built on Stellar](https://img.shields.io/badge/Built%20on-Stellar-blue)](https://stellar.org)
@@ -19,17 +28,17 @@ But two critical pieces of infrastructure are missing:
 
 2. **There is no programmable spending-policy layer** that allows agents to pay other agents *autonomously* within defined budgets — without requiring a human to sign every transaction. This is the #1 unsolved problem blocking real-world agentic commerce on x402 and every similar protocol.
 
-StellarMind solves both.
+Proxima solves both.
 
 ---
 
-## What StellarMind Is
+## What Proxima Is
 
-StellarMind is a **3-layer open-source infrastructure project** built natively on Stellar:
+Proxima is a **3-layer open-source infrastructure project** built natively on Stellar:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   STELLARMIND STACK                      │
+│                   Proxima STACK                      │
 ├─────────────────────────────────────────────────────────┤
 │  Layer 3: Dashboard UI       React explorer & mgmt app  │
 │  Layer 2: TypeScript SDK     Drop-in developer toolkit  │
@@ -54,9 +63,9 @@ A **programmable authorization contract** that enables agents to pay autonomousl
 ### Layer 3 — TypeScript SDK (`/sdk`)
 A clean, well-documented SDK developers drop into any JS/TS project:
 ```ts
-import { StellarMind } from '@stellarmind/sdk'
+import { Proxima } from '@Proxima/sdk'
 
-const mind = new StellarMind({ network: 'mainnet' })
+const mind = new Proxima({ network: 'mainnet' })
 
 // Register an agent
 await mind.registry.register({ name: 'DataFetcher', capabilities: ['web-search'], pricePerCall: '0.01' })
@@ -82,9 +91,9 @@ A beautiful React web app for:
 
 ## Why Stellar
 
-StellarMind is built **exclusively and deeply** on Stellar — not shoehorned in:
+Proxima is built **exclusively and deeply** on Stellar — not shoehorned in:
 
-| Stellar Feature | How StellarMind Uses It |
+| Stellar Feature | How Proxima Uses It |
 |---|---|
 | Soroban smart contracts | Registry + spending policy contracts (Rust/WASM) |
 | USDC as native asset | All agent payments settle in USDC, no bridging |
@@ -104,7 +113,7 @@ StellarMind is built **exclusively and deeply** on Stellar — not shoehorned in
                      └──────┬───────┘
                             │ calls SDK
                      ┌──────▼───────┐
-                     │  StellarMind │
+                     │  Proxima │
                      │     SDK      │
                      └──────┬───────┘
               ┌─────────────┼─────────────┐
@@ -129,7 +138,7 @@ StellarMind is built **exclusively and deeply** on Stellar — not shoehorned in
 ## Project Structure
 
 ```
-stellarmind/
+Proxima/
 ├── contracts/                    # Soroban smart contracts (Rust)
 │   ├── Cargo.toml
 │   ├── src/
@@ -168,7 +177,7 @@ stellarmind/
 │   │   │   ├── useRegistry.ts
 │   │   │   └── usePolicy.ts
 │   │   └── lib/
-│   │       └── stellarmind.ts
+│   │       └── Proxima.ts
 │
 ├── docs/
 │   ├── ARCHITECTURE.md
@@ -196,23 +205,27 @@ stellarmind/
 
 ### Phase 1 — Foundation (Months 1–2)
 - [x] Project scaffold & architecture
-- [ ] Agent Registry Soroban contract (Rust) + tests
-- [ ] Spending Policy Soroban contract (Rust) + tests
-- [ ] Deploy both contracts to Stellar Testnet
-- [ ] TypeScript SDK core (registry + policy clients)
-- [ ] SDK unit tests
+- [x] Agent Registry Soroban contract (Rust) + tests
+- [x] Spending Policy Soroban contract (Rust) + tests
+- [x] `execute_payment` contract tests (token transfer path)
+- [x] Deploy both contracts to Stellar Testnet
+- [x] TypeScript SDK core (registry + policy clients)
+- [x] SDK browser-wallet signing (`buildRegisterTx`, `buildCreatePolicyTx`, `buildRevokePolicyTx`, `submitSignedTx`)
+- [x] SDK unit tests (39 tests via `bun test`)
 
 ### Phase 2 — Explorer (Months 3–4)
-- [ ] React dashboard — Agent Explorer UI
-- [ ] React dashboard — Policy Manager UI
-- [ ] Real-time Activity Feed (Stellar event streaming)
-- [ ] Freighter wallet integration
-- [ ] SDK usage examples (2 complete examples)
+- [x] React dashboard — Agent Explorer UI (live on-chain data with mock fallback)
+- [x] React dashboard — Policy Manager UI (create + revoke wired to Freighter)
+- [x] React dashboard — Register Agent UI (wired to Freighter + SDK, ID availability badge)
+- [x] Real-time Activity Feed (Stellar event streaming)
+- [x] Freighter wallet integration
+- [x] Live on-chain stats bar (agent count + policy count)
+- [x] SDK usage examples (2 complete examples)
 
 ### Phase 3 — Integration & Polish (Month 5)
 - [ ] x402 payment flow integration demo
 - [ ] Mainnet deployment
-- [ ] Full documentation site
+- [x] Full documentation site
 - [ ] Security review
 - [ ] Video demo + launch post
 
@@ -220,7 +233,7 @@ stellarmind/
 
 ## Contributing
 
-StellarMind is built for the community, by the community. We have labeled issues for every skill level:
+Proxima is built for the community, by the community. We have labeled issues for every skill level:
 
 - 🟢 `good-first-issue` — great for first-time Stellar contributors
 - 🟡 `help-wanted` — well-scoped features needing an owner
@@ -260,4 +273,4 @@ MIT License — see [LICENSE](./LICENSE)
 
 ---
 
-*StellarMind is a community project. It is not affiliated with or endorsed by the Stellar Development Foundation.*
+*Proxima is a community project. It is not affiliated with or endorsed by the Stellar Development Foundation.*

@@ -6,15 +6,16 @@ import {
   scValToNative,
   xdr,
   Keypair,
+  Transaction,
 } from '@stellar/stellar-sdk';
-import type { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc as SorobanRpc } from '@stellar/stellar-sdk';
 
+import { ProximaError, ErrorCodes } from './types';
 import type {
   Agent,
   FindAgentsParams,
   RegisterAgentParams,
 } from './types';
-import { StellarMindError, ErrorCodes } from './types';
 import {
   ResolvedConfig,
   createRpcServer,
@@ -24,7 +25,7 @@ import {
 } from './stellar';
 
 /**
- * RegistryClient — interact with the StellarMind Agent Registry contract.
+ * RegistryClient — interact with the Proxima Agent Registry contract.
  *
  * @example
  * ```ts
@@ -39,18 +40,31 @@ import {
  */
 export class RegistryClient {
   private rpc: SorobanRpc.Server;
-  private contract: Contract;
+  private _contract: Contract | null = null;
 
   constructor(private config: ResolvedConfig) {
     this.rpc = createRpcServer(config);
-    this.contract = new Contract(config.registryContractId);
+  }
+
+  /** Lazy contract accessor — validates the contract ID only when first used. */
+  private get contract(): Contract {
+    if (!this._contract) {
+      if (!this.config.registryContractId) {
+        throw new ProximaError(
+          'Registry contract ID is not configured for this network.',
+          ErrorCodes.CONTRACT_ERROR
+        );
+      }
+      this._contract = new Contract(this.config.registryContractId);
+    }
+    return this._contract;
   }
 
   // ─── Read Methods ───────────────────────────────────────────────────────────
 
   /**
    * Retrieve a single agent by ID.
-   * @throws StellarMindError if agent not found
+   * @throws ProximaError if agent not found
    */
   async getAgent(id: string): Promise<Agent> {
     try {
@@ -59,7 +73,7 @@ export class RegistryClient {
       );
 
       if (SorobanRpc.Api.isSimulationError(result)) {
-        throw new StellarMindError(
+        throw new ProximaError(
           `Agent "${id}" not found`,
           ErrorCodes.AGENT_NOT_FOUND,
           result.error
@@ -68,8 +82,8 @@ export class RegistryClient {
 
       return this._parseAgent(scValToNative((result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result!.retval));
     } catch (err) {
-      if (err instanceof StellarMindError) throw err;
-      throw new StellarMindError(
+      if (err instanceof ProximaError) throw err;
+      throw new ProximaError(
         `Failed to fetch agent: ${(err as Error).message}`,
         ErrorCodes.NETWORK_ERROR,
         err
@@ -105,26 +119,101 @@ export class RegistryClient {
 
   /**
    * Find agents matching filter criteria.
-   * Note: This queries the chain for known agents — in production this would
-   * be backed by an indexer for efficient filtering.
+   *
+   * This method queries registered AgentRegistered events from the Stellar
+   * Horizon API to discover all agent IDs, then fetches each agent's on-chain
+   * data and filters by the provided criteria.
+   *
+   * For high-volume production use, pair this with a dedicated indexer
+   * (e.g. Mercury, Subquery) for sub-second queries. See docs/SDK_GUIDE.md.
+   *
+   * @param params  Filter and sort criteria
+   * @returns       Array of matching agents, sorted by reputation descending
    */
   async find(params: FindAgentsParams = {}): Promise<Agent[]> {
-    // In production, this would query an indexer (e.g. Stellar Turrets or a
-    // custom indexer that indexes AgentRegistered events).
-    // For now, this demonstrates the pattern.
+    const { capability, maxPrice, minReputation, activeOnly = true } = params;
 
-    // TODO: integrate with event indexer for efficient search
-    // For initial release: pull from a known list maintained off-chain
-    throw new StellarMindError(
-      'find() requires an indexer integration — see docs/SDK_GUIDE.md for setup',
-      'NOT_IMPLEMENTED'
-    );
+    try {
+      // Fetch contract events for the registry — topic1="regist", topic2="agent"
+      const eventsUrl =
+        `${this.config.horizonUrl}/contract_events` +
+        `?contract_id=${this.config.registryContractId}` +
+        `&topic1=AAAADwAAAAZyZWdpc3Q=` +   // base64("regist") as ScSymbol
+        `&topic2=AAAADwAAAAVhZ2VudA==` +   // base64("agent") as ScSymbol
+        `&limit=200&order=asc`;
+
+      let agentIds: string[] = [];
+
+      try {
+        const res = await fetch(eventsUrl);
+        if (res.ok) {
+          const data = await res.json() as { _embedded?: { records?: Array<{ value: string }> } };
+          const records = data._embedded?.records ?? [];
+          // Each event value is the agent_id encoded as ScVal string
+          agentIds = records.map((r) => {
+            try {
+              return scValToNative(
+                xdr.ScVal.fromXDR(r.value, 'base64')
+              ) as string;
+            } catch {
+              return null;
+            }
+          }).filter((id): id is string => id !== null);
+        }
+      } catch {
+        // Horizon unavailable — fall through to empty result
+      }
+
+      if (agentIds.length === 0) {
+        return [];
+      }
+
+      // Deduplicate (an agent could have multiple register events if re-registered)
+      const uniqueIds = [...new Set(agentIds)];
+
+      // Fetch each agent in parallel (cap at 50 concurrent requests)
+      const BATCH = 50;
+      const agents: Agent[] = [];
+
+      for (let i = 0; i < uniqueIds.length; i += BATCH) {
+        const batch = uniqueIds.slice(i, i + BATCH);
+        const results = await Promise.allSettled(
+          batch.map((id) => this.getAgent(id))
+        );
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            agents.push(result.value);
+          }
+        }
+      }
+
+      // Apply filters
+      return agents
+        .filter((agent) => {
+          if (activeOnly && !agent.isActive) return false;
+          if (capability && !agent.capabilities.includes(capability)) return false;
+          if (minReputation !== undefined && agent.reputation / 100 < minReputation) return false;
+          if (maxPrice !== undefined) {
+            const maxStroops = toStroops(maxPrice);
+            if (agent.pricePerCall > maxStroops) return false;
+          }
+          return true;
+        })
+        .sort((a, b) => b.reputation - a.reputation);
+    } catch (err) {
+      if (err instanceof ProximaError) throw err;
+      throw new ProximaError(
+        `find() failed: ${(err as Error).message}`,
+        ErrorCodes.NETWORK_ERROR,
+        err
+      );
+    }
   }
 
   // ─── Write Methods ──────────────────────────────────────────────────────────
 
   /**
-   * Register a new AI agent in the StellarMind registry.
+   * Register a new AI agent in the Proxima registry.
    *
    * @param params  Agent registration parameters
    * @param keypair Stellar keypair of the agent owner
@@ -140,7 +229,7 @@ export class RegistryClient {
       nativeToScVal(params.capabilities, { type: 'vec' }),
       nativeToScVal(toStroops(params.pricePerCall), { type: 'i128' }),
       nativeToScVal(params.paymentAsset, { type: 'string' }),
-      nativeToScVal(params.paymentIssuer, { type: 'address' }),
+      nativeToScVal(params.paymentIssuer ?? '', { type: 'address' }),
       nativeToScVal(params.endpointUrl ?? '', { type: 'bytes' }),
     ];
 
@@ -159,6 +248,146 @@ export class RegistryClient {
     await this._waitForConfirmation(response.hash);
 
     return params.id;
+  }
+
+  /**
+   * Build an unsigned register transaction for browser-wallet signing (e.g. Freighter).
+   *
+   * Unlike `register()` which takes a Keypair, this method returns a base64 XDR
+   * string that can be passed to `window.freighter.signTransaction()`, then
+   * submitted via `submitSignedTx()`.
+   *
+   * @param params          Agent registration parameters
+   * @param ownerPublicKey  Public key of the wallet that will sign
+   * @returns               Unsigned transaction XDR (base64)
+   */
+  async buildRegisterTx(
+    params: RegisterAgentParams & { ownerPublicKey: string }
+  ): Promise<string> {
+    const account = await this.rpc.getAccount(params.ownerPublicKey);
+
+    const args = [
+      nativeToScVal(params.id, { type: 'string' }),
+      nativeToScVal(params.name, { type: 'string' }),
+      nativeToScVal(params.description, { type: 'string' }),
+      nativeToScVal(params.capabilities, { type: 'vec' }),
+      nativeToScVal(toStroops(params.pricePerCall), { type: 'i128' }),
+      nativeToScVal(params.paymentAsset, { type: 'string' }),
+      nativeToScVal(params.paymentIssuer ?? '', { type: 'address' }),
+      nativeToScVal(params.endpointUrl ?? '', { type: 'bytes' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('register', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    return (prepared as Transaction).toEnvelope().toXDR('base64');
+  }
+
+  /**
+   * Submit a signed transaction XDR (returned by Freighter) to the network.
+   * Works for any Proxima contract transaction.
+   *
+   * @param signedXdr  Base64 XDR signed by Freighter
+   * @returns          Transaction hash
+   */
+  async submitSignedTx(signedXdr: string): Promise<string> {
+    const tx = TransactionBuilder.fromXDR(
+      signedXdr,
+      this.config.networkPassphrase
+    );
+    const response = await this.rpc.sendTransaction(tx);
+    await this._waitForConfirmation(response.hash);
+    return response.hash;
+  }
+
+  /**
+   * Update an existing agent's metadata. Must be called by the agent owner.
+   *
+   * @param id      Agent ID to update
+   * @param params  Fields to update (all required — pass current values for fields you don't want to change)
+   * @param keypair Keypair of the agent owner
+   */
+  async updateAgent(
+    id: string,
+    params: {
+      name: string;
+      description: string;
+      capabilities: string[];
+      pricePerCall: string;
+      isActive: boolean;
+      endpointUrl?: string;
+    },
+    keypair: Keypair
+  ): Promise<void> {
+    const account = await this.rpc.getAccount(keypair.publicKey());
+
+    const args = [
+      nativeToScVal(id, { type: 'string' }),
+      nativeToScVal(params.name, { type: 'string' }),
+      nativeToScVal(params.description, { type: 'string' }),
+      nativeToScVal(params.capabilities, { type: 'vec' }),
+      nativeToScVal(toStroops(params.pricePerCall), { type: 'i128' }),
+      nativeToScVal(params.isActive, { type: 'bool' }),
+      nativeToScVal(params.endpointUrl ?? '', { type: 'bytes' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('update_agent', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    prepared.sign(keypair);
+
+    const response = await this.rpc.sendTransaction(prepared);
+    await this._waitForConfirmation(response.hash);
+  }
+
+  /**
+   * Submit a reputation rating for an agent after a completed interaction.
+   * Rating must be between 0 and 10000 (representing 0.00% – 100.00%).
+   *
+   * @param id      Agent ID to rate
+   * @param rating  Score 0–10000
+   * @param keypair Keypair of the caller
+   */
+  async updateReputation(id: string, rating: number, keypair: Keypair): Promise<void> {
+    if (rating < 0 || rating > 10000) {
+      throw new ProximaError(
+        'Rating must be between 0 and 10000',
+        ErrorCodes.CONTRACT_ERROR
+      );
+    }
+
+    const account = await this.rpc.getAccount(keypair.publicKey());
+
+    const args = [
+      nativeToScVal(id, { type: 'string' }),
+      nativeToScVal(rating, { type: 'u32' }),
+    ];
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(this.contract.call('update_reputation', ...args))
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.rpc.prepareTransaction(tx);
+    prepared.sign(keypair);
+
+    const response = await this.rpc.sendTransaction(prepared);
+    await this._waitForConfirmation(response.hash);
   }
 
   /**
@@ -204,10 +433,10 @@ export class RegistryClient {
       const status = await this.rpc.getTransaction(hash);
       if (status.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) return;
       if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
-        throw new StellarMindError('Transaction failed', ErrorCodes.CONTRACT_ERROR, status);
+        throw new ProximaError('Transaction failed', ErrorCodes.CONTRACT_ERROR, status);
       }
     }
-    throw new StellarMindError('Transaction confirmation timeout', ErrorCodes.NETWORK_ERROR);
+    throw new ProximaError('Transaction confirmation timeout', ErrorCodes.NETWORK_ERROR);
   }
 
   private _parseAgent(raw: any): Agent {

@@ -1,0 +1,58 @@
+name: Contract Tests
+
+# Run contract tests on any push/PR that touches Rust code.
+# This is a faster, focused workflow that runs in parallel with the full CI.
+
+on:
+  push:
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/test-contracts.yml'
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/test-contracts.yml'
+
+jobs:
+  test:
+    name: Rust / Soroban Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts
+
+      - name: Check formatting
+        working-directory: contracts
+        run: cargo fmt -- --check
+
+      - name: Clippy (deny warnings)
+        working-directory: contracts
+        run: cargo clippy --all-targets --features testutils -- -D warnings
+
+      - name: Run unit tests
+        working-directory: contracts
+        run: cargo test --features testutils -- --nocapture
+
+      - name: Build WASM (verify it compiles)
+        working-directory: contracts
+        run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: Report WASM size
+        run: |
+          SIZE=$(wc -c < contracts/target/wasm32-unknown-unknown/release/proxima_contracts.wasm)
+          echo "WASM binary size: ${SIZE} bytes"
+          # Warn if over 128KB (Stellar contract size limit is much higher, but keep an eye on it)
+          if [ "$SIZE" -gt 131072 ]; then
+            echo "::warning::WASM binary exceeds 128KB (${SIZE} bytes). Consider optimising."
+          fi
