@@ -119,22 +119,28 @@ export default function WalletConnect() {
     );
   }
 
-  // ── Not installed — show a connect button that opens freighter.app ─────────
+  // ── Not installed — direct user to install Freighter ─────────────────────
   if (!isInstalled) {
     return (
-      <a
-        href="https://freighter.app"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn btn--blue btn-sm"
-        style={{ textDecoration: "none" }}
-      >
-        Connect Wallet
-      </a>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+        <a
+          href="https://freighter.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn--ghost btn-sm"
+          style={{ textDecoration: "none" }}
+          title="Freighter extension not detected — click to install"
+        >
+          Install Freighter ↗
+        </a>
+        <div style={{ fontSize: "10px", color: "#8b949e", textAlign: "right" }}>
+          Wallet extension required
+        </div>
+      </div>
     );
   }
 
-  // ── Installed but not connected ────────────────────────────────────────────
+  // ── Installed but not connected — prompt connection ────────────────────────
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
       <button
@@ -146,7 +152,7 @@ export default function WalletConnect() {
         {loading ? "Connecting…" : "Connect Wallet"}
       </button>
       {error && (
-        <div style={{ fontSize: "11px", color: "#f85149", maxWidth: "200px", textAlign: "right" }}>
+        <div style={{ fontSize: "11px", color: "#f85149", maxWidth: "220px", textAlign: "right", lineHeight: 1.4 }}>
           {error}
         </div>
       )}

@@ -1,84 +1,50 @@
 /**
  * useFreighter.ts
  *
- * React hook for Freighter wallet integration.
+ * React hook for Freighter wallet integration using the official
+ * @stellar/freighter-api v6 package.
  *
- * Freighter is the official Stellar browser wallet extension.
- * This hook handles:
- *  - Detecting whether Freighter is installed
- *  - Connecting / disconnecting the wallet
- *  - Reading the connected public key
- *  - Signing transactions before submission
+ * The old window.freighter injection was removed in newer Freighter versions.
+ * All interaction now goes through the named exports of the freighter-api package.
  *
  * @see https://docs.freighter.app
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import {
+  isConnected as freighterIsConnected,
+  isAllowed,
+  requestAccess,
+  getAddress,
+  getNetwork,
+  signTransaction as freighterSignTx,
+} from '@stellar/freighter-api';
 
-// ─── Freighter browser API types ─────────────────────────────────────────────
-// Freighter injects window.freighter — we declare a minimal shape here
-// so we don't need a full type package.
-
-interface FreighterAPI {
-  isConnected(): Promise<{ isConnected: boolean }>;
-  requestAccess(): Promise<{ address: string; error?: string }>;
-  getAddress(): Promise<{ address: string; error?: string }>;
-  getNetwork(): Promise<{ network: string; networkPassphrase: string; error?: string }>;
-  signTransaction(
-    xdr: string,
-    opts?: { networkPassphrase?: string; address?: string }
-  ): Promise<{ signedTxXdr: string; signerAddress: string; error?: string }>;
-}
-
-declare global {
-  interface Window {
-    freighter?: FreighterAPI;
-  }
-}
-
-// ─── Hook state ───────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface FreighterState {
-  /** Whether the Freighter extension is installed in the browser */
+  /** Whether the Freighter extension is installed and reachable */
   isInstalled: boolean;
-  /** Whether the user has connected their wallet */
+  /** Whether the user has granted this site access to their wallet */
   isConnected: boolean;
   /** Connected Stellar public key, or null if not connected */
   publicKey: string | null;
-  /** Active Stellar network ("TESTNET" | "PUBLIC" etc.) */
+  /** Active Stellar network name (e.g. "TESTNET") */
   network: string | null;
-  /** Whether a connection/signing operation is in progress */
+  /** Whether a connect/sign operation is in progress */
   loading: boolean;
   /** Last error message, if any */
   error: string | null;
 }
 
 export interface FreighterActions {
-  /** Prompt the user to connect their Freighter wallet */
   connect: () => Promise<void>;
-  /** Disconnect (clears local state — Freighter has no explicit disconnect API) */
   disconnect: () => void;
-  /**
-   * Sign a transaction XDR string with the connected wallet.
-   * Returns the signed XDR, ready to submit to the Stellar RPC.
-   */
   signTransaction: (xdr: string) => Promise<string | null>;
 }
 
 // ─── useFreighter ─────────────────────────────────────────────────────────────
 
-/**
- * Hook for Freighter wallet integration.
- *
- * @example
- * ```tsx
- * const { isInstalled, isConnected, publicKey, connect, signTransaction } = useFreighter()
- *
- * if (!isInstalled) return <p>Please install Freighter</p>
- * if (!isConnected) return <button onClick={connect}>Connect Wallet</button>
- * return <p>Connected: {publicKey}</p>
- * ```
- */
 export function useFreighter(): FreighterState & FreighterActions {
   const [state, setState] = useState<FreighterState>({
     isInstalled: false,
@@ -89,66 +55,84 @@ export function useFreighter(): FreighterState & FreighterActions {
     error: null,
   });
 
-  // ── Detect installation and restore session on mount ──────────────────────
+  // ── Detect installation and restore an existing session on mount ──────────
 
   useEffect(() => {
-    const check = async () => {
-      const freighter = window.freighter;
-      if (!freighter) {
-        setState((s) => ({ ...s, isInstalled: false }));
-        return;
-      }
-
-      setState((s) => ({ ...s, isInstalled: true }));
-
+    const detect = async () => {
       try {
-        const { isConnected } = await freighter.isConnected();
-        if (!isConnected) return;
+        // isConnected() resolves even when the extension is absent — it returns
+        // { isConnected: false } in that case.  If the call itself throws, the
+        // extension is truly not present (e.g. in a non-browser environment).
+        const connResult = await freighterIsConnected();
 
-        const { address, error } = await freighter.getAddress();
-        if (error || !address) return;
+        if (!connResult.isConnected) {
+          // Extension is installed but the user has not yet granted access.
+          // Mark as installed so we show the "Connect Wallet" button.
+          setState((s) => ({ ...s, isInstalled: true }));
 
-        const netResult = await freighter.getNetwork();
+          // Also check whether the site is already on the allow-list
+          // (i.e. user connected before and the permission persists).
+          const allowResult = await isAllowed();
+          if (allowResult.isAllowed) {
+            // Allowed but getAddress() returns the key without a new popup.
+            const addrResult = await getAddress();
+            if (!addrResult.error && addrResult.address) {
+              const netResult = await getNetwork();
+              setState((s) => ({
+                ...s,
+                isInstalled: true,
+                isConnected: true,
+                publicKey: addrResult.address,
+                network: netResult.network ?? null,
+              }));
+            }
+          }
+          return;
+        }
 
+        // isConnected === true means extension is installed AND already allowed.
+        const addrResult = await getAddress();
+        if (addrResult.error || !addrResult.address) {
+          setState((s) => ({ ...s, isInstalled: true }));
+          return;
+        }
+
+        const netResult = await getNetwork();
         setState((s) => ({
           ...s,
+          isInstalled: true,
           isConnected: true,
-          publicKey: address,
+          publicKey: addrResult.address,
           network: netResult.network ?? null,
         }));
       } catch {
-        // Extension present but not yet authorised — normal state, no error
+        // freighter-api throws when the extension is not installed at all
+        setState((s) => ({ ...s, isInstalled: false }));
       }
     };
 
-    check();
+    detect();
   }, []);
 
   // ── connect ───────────────────────────────────────────────────────────────
 
   const connect = useCallback(async () => {
-    const freighter = window.freighter;
-    if (!freighter) {
-      setState((s) => ({
-        ...s,
-        error: 'Freighter is not installed. Visit https://freighter.app to install it.',
-      }));
-      return;
-    }
-
     setState((s) => ({ ...s, loading: true, error: null }));
-
     try {
-      const { address, error } = await freighter.requestAccess();
-      if (error) throw new Error(error);
-      if (!address) throw new Error('No address returned from Freighter.');
+      // requestAccess() prompts Freighter to grant this site permission.
+      // It returns the selected account address on success.
+      const result = await requestAccess();
 
-      const netResult = await freighter.getNetwork();
+      if (result.error) throw new Error(String(result.error));
+      if (!result.address) throw new Error('No address returned from Freighter.');
+
+      const netResult = await getNetwork();
 
       setState((s) => ({
         ...s,
+        isInstalled: true,
         isConnected: true,
-        publicKey: address,
+        publicKey: result.address,
         network: netResult.network ?? null,
         loading: false,
         error: null,
@@ -178,20 +162,16 @@ export function useFreighter(): FreighterState & FreighterActions {
 
   const signTransaction = useCallback(
     async (xdr: string): Promise<string | null> => {
-      const freighter = window.freighter;
-      if (!freighter || !state.publicKey) {
+      if (!state.publicKey) {
         setState((s) => ({ ...s, error: 'Wallet not connected.' }));
         return null;
       }
 
       setState((s) => ({ ...s, loading: true, error: null }));
-
       try {
-        const result = await freighter.signTransaction(xdr, {
-          address: state.publicKey,
-        });
+        const result = await freighterSignTx(xdr, { address: state.publicKey });
 
-        if (result.error) throw new Error(result.error);
+        if (result.error) throw new Error(String(result.error));
 
         setState((s) => ({ ...s, loading: false }));
         return result.signedTxXdr;
