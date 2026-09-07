@@ -224,9 +224,9 @@ Proxima/
 ### Phase 3 — Integration & Polish (Month 5)
 - [ ] x402 payment flow integration demo
 - [ ] Mainnet deployment
-- [x] Full documentation site
 - [ ] Security review
 - [ ] Video demo + launch post
+- [x] Full documentation site
 
 ---
 
@@ -265,10 +265,11 @@ MIT License — see [LICENSE](./LICENSE)
 
 ## Links
 
-- 🌐 **Live App:** coming soon
+- 🌐 **Live App:** https://nullius-taupe.vercel.app/
 - 📖 **Docs:** `/docs`
-- 💬 **Discord:** coming soon
-- 🐦 **Twitter:** coming soon
+- 💬 **Discord:** [Join the server](https://discord.gg/proxima) *(coming soon — drop a star on the repo and we'll ping you)*
+- 🐦 **Twitter/X:** [@ProximaStellar](https://x.com/ProximaStellar)
+- 🐙 **GitHub:** [IyanuOluwaJesuloba/Proxima](https://github.com/IyanuOluwaJesuloba/Proxima)
 
 ---
 

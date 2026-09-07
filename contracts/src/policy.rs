@@ -69,6 +69,7 @@ impl PolicyContract {
     /// Returns the new policy ID.
     pub fn create_policy(
         env: Env,
+        owner: Address,
         agent: Address,
         max_per_tx: i128,
         daily_limit: i128,
@@ -76,8 +77,7 @@ impl PolicyContract {
         issuer: Address,
         allowed_recipient: Option<Address>,
     ) -> u64 {
-        let owner = env.current_contract_address();
-        // Production: let owner: Address = env.invoker(); owner.require_auth();
+        owner.require_auth();
 
         if max_per_tx <= 0 || daily_limit <= 0 {
             panic_with_error!(&env, PolicyError::InvalidAmount);

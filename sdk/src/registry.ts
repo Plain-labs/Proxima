@@ -223,6 +223,7 @@ export class RegistryClient {
     const account = await this.rpc.getAccount(keypair.publicKey());
 
     const args = [
+      nativeToScVal(keypair.publicKey(), { type: 'address' }),
       nativeToScVal(params.id, { type: 'string' }),
       nativeToScVal(params.name, { type: 'string' }),
       nativeToScVal(params.description, { type: 'string' }),
@@ -266,7 +267,9 @@ export class RegistryClient {
   ): Promise<string> {
     const account = await this.rpc.getAccount(params.ownerPublicKey);
 
+    // Build the unsigned register transaction — owner is the signing wallet
     const args = [
+      nativeToScVal(params.ownerPublicKey, { type: 'address' }),
       nativeToScVal(params.id, { type: 'string' }),
       nativeToScVal(params.name, { type: 'string' }),
       nativeToScVal(params.description, { type: 'string' }),

@@ -65,6 +65,7 @@ impl RegistryContract {
     #[allow(clippy::too_many_arguments)]
     pub fn register(
         env: Env,
+        owner: Address,
         id: String,
         name: String,
         description: String,
@@ -74,10 +75,7 @@ impl RegistryContract {
         payment_issuer: Address,
         endpoint_url: Bytes,
     ) -> String {
-        let owner = env.current_contract_address();
-        // In a real deployment, caller authentication would be:
-        // let owner: Address = env.invoker();
-        // owner.require_auth();
+        owner.require_auth();
 
         // Validate
         if price_per_call < 0 {

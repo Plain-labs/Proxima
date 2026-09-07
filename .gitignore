@@ -13,6 +13,9 @@ yarn-error.log*
 .pnp.js
 bun.lockb           # regenerated automatically
 
+# ─── Vite cache ───────────────────────────────────────────────────────────────
+**/.vite/
+
 # ─── Build output ─────────────────────────────────────────────────────────────
 dist/
 build/
@@ -38,6 +41,9 @@ Thumbs.db
 # ─── Test & coverage ──────────────────────────────────────────────────────────
 coverage/
 .nyc_output/
+
+# ─── Test snapshots (Soroban contract test output) ────────────────────────────
+contracts/test_snapshots/
 
 # ─── Logs ─────────────────────────────────────────────────────────────────────
 *.log
