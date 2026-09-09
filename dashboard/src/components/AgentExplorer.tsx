@@ -1,13 +1,33 @@
-import { useState, useRef } from "react";
-import { useAgents, MOCK_AGENTS } from "../hooks/useRegistry";
+import { useState, useRef, useMemo } from "react";
+import type { Agent } from "@proxima/sdk";
+import { useAgentSearch, MOCK_AGENTS, filterMockAgents } from "../hooks/useRegistry";
 import type { MockAgent } from "../hooks/useRegistry";
 import ReputationSparkline from "./ReputationSparkline";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type SortBy = "reputation" | "calls" | "price";
+
 interface AgentCardProps {
-  agent: MockAgent;
+  agent: DisplayAgent;
   onCreatePolicy: (agentId: string, agentName: string) => void;
+}
+
+/**
+ * Unified agent display type that works with both on-chain Agent and MockAgent data.
+ */
+interface DisplayAgent {
+  id: string;
+  name: string;
+  description: string;
+  capabilities: string[];
+  priceDisplay: string;
+  reputationDisplay: string;
+  reputation: number;
+  totalCalls: number;
+  isActive: boolean;
+  owner: string;
+  registeredAt: string;
 }
 
 // ─── ReputationBar ────────────────────────────────────────────────────────────
@@ -39,20 +59,17 @@ function ReputationBar({ score }: { score: number }) {
 }
 
 // ─── Mock history generator ──────────────────────────────────────────────────
-// Generates a plausible 20-point reputation history ending at `currentScore`.
-// Older agents (high totalCalls) have tighter variance; newer agents are noisier.
+
 function generateMockHistory(currentScore: number, totalCalls: number): number[] {
   const COUNT = 20;
-  const stability = Math.min(totalCalls / 5000, 1); // 0 → 1 as calls grow
-  const maxNoise = (1 - stability) * 800 + 80;      // score units (0–10 000 scale)
+  const stability = Math.min(totalCalls / 5000, 1);
+  const maxNoise = (1 - stability) * 800 + 80;
 
-  // We work backwards from currentScore, adding cumulative drift
   const points: number[] = [currentScore];
   let cursor = currentScore;
 
   for (let i = 1; i < COUNT; i++) {
-    // Each step back can drift slightly further from the final score
-    const noise = (Math.random() - 0.48) * maxNoise; // slight upward bias
+    const noise = (Math.random() - 0.48) * maxNoise;
     cursor = Math.max(0, Math.min(10000, cursor - noise));
     points.unshift(cursor);
   }
@@ -64,7 +81,6 @@ function generateMockHistory(currentScore: number, totalCalls: number): number[]
 
 function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
-  // History generated once on first expand and kept stable across re-renders
   const historyRef = useRef<number[] | null>(null);
   if (expanded && !historyRef.current) {
     historyRef.current = generateMockHistory(agent.reputation, agent.totalCalls);
@@ -95,7 +111,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
           : "rgba(255,255,255,0.06)";
       }}
     >
-      {/* Active/inactive status stripe */}
       <div style={{
         position: "absolute", top: 0, left: 0,
         width: "3px", height: "100%",
@@ -105,7 +120,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
       }} />
 
       <div style={{ paddingLeft: "8px" }}>
-        {/* Header row */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -139,7 +153,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
           </div>
         </div>
 
-        {/* Description */}
         <p style={{
           fontSize: "12px", color: "rgba(226,232,240,0.55)",
           marginTop: "10px", lineHeight: "1.6",
@@ -147,7 +160,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
           {agent.description}
         </p>
 
-        {/* Capabilities */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
           {agent.capabilities.map((cap) => (
             <span key={cap} style={{
@@ -162,7 +174,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
           ))}
         </div>
 
-        {/* Reputation bar */}
         <div style={{ marginTop: "14px" }}>
           <div style={{
             fontSize: "10px", color: "rgba(226,232,240,0.3)",
@@ -173,11 +184,10 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
           <ReputationBar score={agent.reputation} />
         </div>
 
-        {/* Expanded details */}
         {expanded && (() => {
           const history = historyRef.current!;
           const last = history[history.length - 1];
-          const weekSlice = history.slice(-5); // approximate "this week"
+          const weekSlice = history.slice(-5);
           const weekDelta = weekSlice[weekSlice.length - 1] - weekSlice[0];
           const weekPct = ((weekDelta / (weekSlice[0] || 1)) * 100).toFixed(1);
           const isUp = weekDelta > 0;
@@ -215,7 +225,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
                 ))}
               </div>
 
-              {/* ── Reputation sparkline ── */}
               <div
                 style={{
                   marginTop: "14px",
@@ -234,7 +243,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  {/* Sparkline stretches to fill available space */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <ReputationSparkline
                       history={history}
@@ -243,7 +251,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
                     />
                   </div>
 
-                  {/* Score + trend label */}
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{
                       fontSize: "14px", fontWeight: "700",
@@ -261,7 +268,6 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
                 {agent.isActive && (
                   <button
@@ -325,10 +331,45 @@ function AgentCard({ agent, onCreatePolicy }: AgentCardProps) {
   );
 }
 
+// ─── Helper: Convert SDK Agent to DisplayAgent ───────────────────────────────
+
+function toDisplayAgent(agent: Agent): DisplayAgent {
+  return {
+    id: agent.id,
+    name: agent.name,
+    description: agent.description,
+    capabilities: agent.capabilities,
+    priceDisplay: agent.priceDisplay,
+    reputationDisplay: agent.reputationDisplay,
+    reputation: agent.reputation,
+    totalCalls: Number(agent.totalCalls),
+    isActive: agent.isActive,
+    owner: agent.owner.length > 10
+      ? `${agent.owner.slice(0, 4)}...${agent.owner.slice(-4)}`
+      : agent.owner,
+    registeredAt: new Date(agent.registeredAt * 1000).toISOString().split("T")[0],
+  };
+}
+
+function mockAgentToDisplayAgent(agent: MockAgent): DisplayAgent {
+  return {
+    id: agent.id,
+    name: agent.name,
+    description: agent.description,
+    capabilities: agent.capabilities,
+    priceDisplay: agent.priceDisplay,
+    reputationDisplay: agent.reputationDisplay,
+    reputation: agent.reputation,
+    totalCalls: agent.totalCalls,
+    isActive: agent.isActive,
+    owner: agent.owner,
+    registeredAt: agent.registeredAt,
+  };
+}
+
 // ─── AgentExplorer ────────────────────────────────────────────────────────────
 
 interface AgentExplorerProps {
-  /** Called when user clicks "Create Spending Policy" on an agent card */
   onCreatePolicy?: (agentId: string, agentName: string) => void;
 }
 
@@ -336,29 +377,57 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
   const [search, setSearch] = useState("");
   const [filterCap, setFilterCap] = useState("");
   const [filterActive, setFilterActive] = useState(false);
-  const [sortBy, setSortBy] = useState<"reputation" | "calls" | "price">("reputation");
+  const [sortBy, setSortBy] = useState<SortBy>("reputation");
 
-  // Fetch live on-chain agents; falls back to mock data if RPC is unavailable
-  const { agents, loading, usingMock } = useAgents({
+  const { agents: onChainAgents, loading, error } = useAgentSearch({
     capability: filterCap || undefined,
     activeOnly: filterActive,
-    sortBy,
   });
 
-  // Apply text search on top of hook filtering
-  const filtered = agents.filter((a) => {
-    if (!search) return true;
+  const usingMock = onChainAgents.length === 0 && !loading;
+
+  const displayAgents = useMemo<DisplayAgent[]>(() => {
+    if (onChainAgents.length > 0) {
+      const mapped = onChainAgents.map(toDisplayAgent);
+      return mapped.sort((a, b) => {
+        switch (sortBy) {
+          case "reputation":
+            return b.reputation - a.reputation;
+          case "calls":
+            return b.totalCalls - a.totalCalls;
+          case "price":
+            return parseFloat(a.priceDisplay) - parseFloat(b.priceDisplay);
+          default: {
+            const _exhaustiveCheck: never = sortBy;
+            return _exhaustiveCheck;
+          }
+        }
+      });
+    }
+    const mockFiltered = filterMockAgents({
+      capability: filterCap || undefined,
+      activeOnly: filterActive,
+      sortBy,
+    });
+    return mockFiltered.map(mockAgentToDisplayAgent);
+  }, [onChainAgents, filterCap, filterActive, sortBy]);
+
+  const filtered = useMemo(() => {
+    if (!search) return displayAgents;
     const q = search.toLowerCase();
-    return (
-      a.name.toLowerCase().includes(q) ||
-      a.description.toLowerCase().includes(q) ||
-      a.capabilities.some((c) => c.includes(q))
+    return displayAgents.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        a.description.toLowerCase().includes(q) ||
+        a.capabilities.some((c) => c.includes(q))
     );
-  });
+  }, [displayAgents, search]);
 
-  const allCapabilities = Array.from(
-    new Set([...MOCK_AGENTS, ...agents].flatMap((a) => a.capabilities))
-  ).sort();
+  const allCapabilities = useMemo(() => {
+    return Array.from(
+      new Set([...MOCK_AGENTS, ...displayAgents].flatMap((a) => a.capabilities))
+    ).sort();
+  }, [displayAgents]);
 
   const handleCreatePolicy = (agentId: string, agentName: string) => {
     if (onCreatePolicy) {
@@ -368,7 +437,6 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
 
   return (
     <div>
-      {/* Section header */}
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "24px", fontWeight: "700", color: "#fff", letterSpacing: "-0.02em" }}>
           Agent Explorer
@@ -378,7 +446,6 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
         </p>
       </div>
 
-      {/* Filter bar */}
       <div style={{ display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
         <input
           placeholder="Search agents..."
@@ -416,7 +483,7 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
 
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          onChange={(e) => setSortBy(e.target.value as SortBy)}
           style={{
             padding: "10px 14px",
             background: "rgba(255,255,255,0.04)",
@@ -448,15 +515,24 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
         </button>
       </div>
 
-      {/* Result count */}
       <div style={{
         fontSize: "11px", color: "rgba(226,232,240,0.3)",
         marginBottom: "16px", letterSpacing: "0.1em",
         display: "flex", alignItems: "center", gap: "10px",
       }}>
-        <span>SHOWING {filtered.length} OF {agents.length} AGENTS</span>
+        <span>SHOWING {filtered.length} OF {displayAgents.length} AGENTS</span>
         {loading && (
           <span style={{ color: "rgba(0,200,255,0.4)" }}>LOADING...</span>
+        )}
+        {error && (
+          <span style={{
+            fontSize: "9px", padding: "2px 7px",
+            background: "rgba(255,64,96,0.08)",
+            border: "1px solid rgba(255,64,96,0.2)",
+            borderRadius: "4px", color: "rgba(255,64,96,0.6)",
+          }}>
+            ERROR
+          </span>
         )}
         {!loading && usingMock && (
           <span style={{
@@ -470,7 +546,6 @@ export default function AgentExplorer({ onCreatePolicy }: AgentExplorerProps) {
         )}
       </div>
 
-      {/* Agent grid */}
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))",

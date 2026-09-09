@@ -1,33 +1,103 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { SpendingPolicy } from '../lib/proxima';
-import { getProxima } from '../lib/proxima';
+import type { SpendingPolicy } from '@proxima/sdk';
+import { useStellarMind } from '../lib/stellarmind.tsx';
 
-// ─── usePolicy ───────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
+/**
+ * State returned by usePolicy hook.
+ */
 interface UsePolicyState {
+  /** The fetched policy, or null if not found or still loading */
   policy: SpendingPolicy | null;
+  /** Whether the hook is currently fetching data */
   loading: boolean;
+  /** Error message if the fetch failed */
   error: string | null;
+  /** Function to manually re-fetch the policy */
   refetch: () => void;
 }
 
 /**
+ * State returned by usePolicyAuthorization hook.
+ */
+interface UsePolicyAuthorizationState {
+  /** Whether the agent is authorized under the policy, or null if not yet checked */
+  authorized: boolean | null;
+  /** Whether the hook is currently checking authorization */
+  loading: boolean;
+}
+
+/**
+ * State returned by useRemainingAllowance hook.
+ */
+interface UseRemainingAllowanceState {
+  /** Remaining allowance in stroops (raw on-chain units), or null if not fetched */
+  remaining: bigint | null;
+  /** Human-readable display string (e.g. "8.5000000 USDC"), or null if not fetched */
+  displayString: string | null;
+  /** Whether the hook is currently fetching data */
+  loading: boolean;
+  /** Error message if the fetch failed */
+  error: string | null;
+  /** Function to manually re-fetch the allowance */
+  refetch: () => void;
+}
+
+/**
+ * State returned by usePolicyCount hook.
+ */
+interface UsePolicyCountState {
+  /** Total number of policies on-chain */
+  count: bigint;
+  /** Whether the hook is currently fetching data */
+  loading: boolean;
+}
+
+// ─── usePolicy ───────────────────────────────────────────────────────────────
+
+/**
  * Fetch a single spending policy by ID from the on-chain contract.
- *
+ * 
+ * This hook retrieves full policy details including spending limits,
+ * current spend amounts, authorized agent, and activity status.
+ * 
+ * @param policyId - The policy ID to fetch, or null to skip fetching
+ * @returns Object containing policy data, loading state, error, and refetch function
+ * 
  * @example
- * const { policy, loading } = usePolicy(1n)
+ * ```tsx
+ * function PolicyDetails({ policyId }: { policyId: bigint }) {
+ *   const { policy, loading, error, refetch } = usePolicy(policyId);
+ *   
+ *   if (loading) return <Spinner />;
+ *   if (error) return <Error message={error} />;
+ *   if (!policy) return <NotFound />;
+ *   
+ *   return (
+ *     <div>
+ *       <h2>Policy #{policy.id.toString()}</h2>
+ *       <p>Agent: {policy.agent}</p>
+ *       <p>Daily Limit: {policy.dailyLimit.toString()} stroops</p>
+ *       <p>Spent Today: {policy.spentToday.toString()} stroops</p>
+ *       <p>Status: {policy.isActive ? 'Active' : 'Revoked'}</p>
+ *       <button onClick={refetch}>Refresh</button>
+ *     </div>
+ *   );
+ * }
+ * ```
  */
 export function usePolicy(policyId: bigint | null): UsePolicyState {
+  const proxima = useStellarMind();
   const [policy, setPolicy] = useState<SpendingPolicy | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetchPolicy = useCallback(async () => {
     if (policyId === null) return;
     setLoading(true);
     setError(null);
     try {
-      const proxima = getProxima();
       const result = await proxima.policy.getPolicy(policyId);
       setPolicy(result);
     } catch (err) {
@@ -36,22 +106,44 @@ export function usePolicy(policyId: bigint | null): UsePolicyState {
     } finally {
       setLoading(false);
     }
-  }, [policyId]);
+  }, [policyId, proxima]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => {
+    fetchPolicy();
+  }, [fetchPolicy]);
 
-  return { policy, loading, error, refetch: fetch };
+  return { policy, loading, error, refetch: fetchPolicy };
 }
 
 // ─── usePolicyAuthorization ──────────────────────────────────────────────────
 
 /**
- * Check whether a given agent address is authorized under a policy.
+ * Check whether a given agent address is authorized under a spending policy.
+ * 
+ * @param policyId - The policy ID to check, or null to skip
+ * @param agentAddress - The agent's Stellar address, or null to skip
+ * @returns Object containing authorization status and loading flag
+ * 
+ * @example
+ * ```tsx
+ * function AuthorizationStatus({ policyId, agentAddress }: Props) {
+ *   const { authorized, loading } = usePolicyAuthorization(policyId, agentAddress);
+ *   
+ *   if (loading) return <span>Checking...</span>;
+ *   
+ *   return (
+ *     <span>
+ *       {authorized ? '✓ Authorized' : '✗ Not Authorized'}
+ *     </span>
+ *   );
+ * }
+ * ```
  */
 export function usePolicyAuthorization(
   policyId: bigint | null,
   agentAddress: string | null
-): { authorized: boolean | null; loading: boolean } {
+): UsePolicyAuthorizationState {
+  const proxima = useStellarMind();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -62,43 +154,74 @@ export function usePolicyAuthorization(
     }
     let cancelled = false;
     setLoading(true);
-    getProxima()
-      .policy.isAuthorized(policyId, agentAddress)
-      .then((result: boolean) => { if (!cancelled) setAuthorized(result); })
-      .catch(() => { if (!cancelled) setAuthorized(false); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [policyId, agentAddress]);
+    proxima.policy
+      .isAuthorized(policyId, agentAddress)
+      .then((result: boolean) => {
+        if (!cancelled) setAuthorized(result);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthorized(false);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [policyId, agentAddress, proxima]);
 
   return { authorized, loading };
 }
 
 // ─── useRemainingAllowance ───────────────────────────────────────────────────
 
-interface UseAllowanceState {
-  remaining: bigint | null;
-  displayString: string | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
-}
-
 /**
  * Return the remaining daily spending allowance for a policy.
- * Automatically re-fetches every 30 seconds to stay current.
+ * 
+ * **Auto-refreshes every 30 seconds** to keep the display current,
+ * which is important for policies that may be actively spending.
+ * 
+ * @param policyId - The policy ID to check, or null to skip
+ * @returns Object containing raw allowance, display string, loading state, error, and refetch
+ * 
+ * @example
+ * ```tsx
+ * function AllowanceDisplay({ policyId }: { policyId: bigint }) {
+ *   const { remaining, displayString, loading, error, refetch } = useRemainingAllowance(policyId);
+ *   
+ *   if (loading && remaining === null) return <Spinner />;
+ *   if (error) return <Error message={error} />;
+ *   
+ *   return (
+ *     <div>
+ *       <strong>Remaining Today:</strong>
+ *       <span>{displayString}</span>
+ *       <small>({remaining?.toString()} stroops)</small>
+ *       <button onClick={refetch}>Refresh Now</button>
+ *     </div>
+ *   );
+ * }
+ * ```
+ * 
+ * @example
+ * // Use raw bigint value for calculations
+ * ```tsx
+ * const { remaining } = useRemainingAllowance(policyId);
+ * const canAfford = remaining !== null && remaining >= requiredAmount;
+ * ```
  */
-export function useRemainingAllowance(policyId: bigint | null): UseAllowanceState {
+export function useRemainingAllowance(policyId: bigint | null): UseRemainingAllowanceState {
+  const proxima = useStellarMind();
   const [remaining, setRemaining] = useState<bigint | null>(null);
   const [displayString, setDisplayString] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetchAllowance = useCallback(async () => {
     if (policyId === null) return;
     setLoading(true);
     setError(null);
     try {
-      const proxima = getProxima();
       const [raw, display] = await Promise.all([
         proxima.policy.remainingAllowance(policyId),
         proxima.policy.remainingAllowanceDisplay(policyId),
@@ -110,47 +233,73 @@ export function useRemainingAllowance(policyId: bigint | null): UseAllowanceStat
     } finally {
       setLoading(false);
     }
-  }, [policyId]);
+  }, [policyId, proxima]);
 
-  // Initial fetch
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => {
+    fetchAllowance();
+  }, [fetchAllowance]);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     if (policyId === null) return;
-    const interval = setInterval(fetch, 30_000);
+    const interval = setInterval(fetchAllowance, 30_000);
     return () => clearInterval(interval);
-  }, [policyId, fetch]);
+  }, [policyId, fetchAllowance]);
 
-  return { remaining, displayString, loading, error, refetch: fetch };
+  return { remaining, displayString, loading, error, refetch: fetchAllowance };
 }
 
 // ─── usePolicyCount ──────────────────────────────────────────────────────────
 
 /**
- * Return total number of policies ever created on-chain.
+ * Return the total number of spending policies ever created on-chain.
+ * 
+ * @returns Object containing the count as bigint and loading state
+ * 
+ * @example
+ * ```tsx
+ * function PolicyStats() {
+ *   const { count, loading } = usePolicyCount();
+ *   
+ *   return (
+ *     <div>
+ *       <strong>{loading ? '–' : count.toString()}</strong> policies created
+ *     </div>
+ *   );
+ * }
+ * ```
  */
-export function usePolicyCount(): { count: bigint; loading: boolean } {
+export function usePolicyCount(): UsePolicyCountState {
+  const proxima = useStellarMind();
   const [count, setCount] = useState<bigint>(0n);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getProxima()
-      .policy.policyCount()
-      .then((n: bigint) => { if (!cancelled) setCount(n); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+    proxima.policy
+      .policyCount()
+      .then((n: bigint) => {
+        if (!cancelled) setCount(n);
+      })
+      .catch(() => {
+        // Silently handle errors - count stays at 0
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [proxima]);
 
   return { count, loading };
 }
 
 // ─── Mock data for the dashboard UI ──────────────────────────────────────────
-// Used while the live contract integration is wired up.
 
+/**
+ * Mock policy data structure for development/demo purposes.
+ */
 export interface MockPolicy {
   id: string;
   agent: string;
@@ -168,6 +317,9 @@ export interface MockPolicy {
   spentPercent: number;
 }
 
+/**
+ * Sample policy data for UI development when on-chain data is unavailable.
+ */
 export const MOCK_POLICIES: MockPolicy[] = [
   {
     id: 'POL-001',
