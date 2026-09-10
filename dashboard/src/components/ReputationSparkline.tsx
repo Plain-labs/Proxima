@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 // ─── ReputationSparkline ──────────────────────────────────────────────────────
 // Renders a minimal SVG sparkline showing reputation score history.
 // No external chart library is used — only native SVG primitives.
@@ -16,6 +18,8 @@ export default function ReputationSparkline({
   width = 200,
   height = 40,
 }: ReputationSparklineProps) {
+  const instanceId = useId();
+
   if (!history || history.length < 2) return null;
 
   const first = history[0];
@@ -70,8 +74,8 @@ export default function ReputationSparkline({
   const dotX = points[points.length - 1].x;
   const dotY = points[points.length - 1].y;
 
-  // Unique gradient id (avoids conflicts when multiple sparklines render)
-  const gradId = `spark-grad-${Math.random().toString(36).slice(2, 8)}`;
+  // Stable gradient id (avoids conflicts when multiple sparklines render)
+  const gradId = `spark-grad-${instanceId}`;
 
   return (
     <svg
