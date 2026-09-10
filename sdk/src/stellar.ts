@@ -33,8 +33,11 @@ const CONTRACT_IDS: Record<Network, { registry: string; policy: string }> = {
     policy: '',   // TBD — post deployment
   },
   testnet: {
-    registry: 'CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R', // deployed June 2026
-    policy:   'CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ',
+    registry: 'CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R',
+    // ⚠️  Policy contract ID below is INVALID (57 chars — typo, missing redeployment).
+    // Run: stellar contract deploy --wasm ... --source <account> --network testnet
+    // then update this value with the correct 56-char ID returned by the CLI.
+    policy:   '',
   },
   futurenet: {
     registry: '',

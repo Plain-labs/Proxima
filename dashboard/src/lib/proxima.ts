@@ -100,7 +100,9 @@ export const NETWORK_INFO: Record<Network, NetworkInfo> = {
     explorerBase: 'https://stellar.expert/explorer/testnet',
     horizonUrl: 'https://horizon-testnet.stellar.org',
     registryContractId: 'CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R',
-    policyContractId: 'CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ',
+    // ⚠️  Invalid ID (57 chars) — needs redeployment. Update after running:
+    // stellar contract deploy --wasm contracts/target/.../proxima_contracts.wasm --source <account> --network testnet
+    policyContractId: '',
   },
   futurenet: {
     name: 'futurenet',
