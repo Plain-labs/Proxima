@@ -124,7 +124,7 @@ stellar contract deploy \
   -- \
   --contract-name policy
 
-# e.g.: CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ
+# e.g.: CCU6OJRXDPI4SRBL7ZJPUBTQY633ND2OLDQPMHDD4QBKAZ7IMJ3TUEBZ
 ```
 
 ---
@@ -215,7 +215,7 @@ Before deploying to Mainnet:
 | Contract | Network | Address |
 |---|---|---|
 | Registry | Testnet | `CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R` |
-| Policy | Testnet | `CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ` |
+| Policy | Testnet | `CCU6OJRXDPI4SRBL7ZJPUBTQY633ND2OLDQPMHDD4QBKAZ7IMJ3TUEBZ` |
 | Registry | Mainnet | TBD — post deployment |
 | Policy | Mainnet | TBD — post deployment |
 

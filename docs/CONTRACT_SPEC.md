@@ -163,7 +163,7 @@ pub struct Agent {
 
 ## Spending Policy Contract
 
-**Contract ID (Testnet):** `⚠️ NEEDS REDEPLOYMENT` — the stored ID was 57 characters (invalid). Redeploy with `stellar contract deploy` and update this document.
+**Contract ID (Testnet):** `CCU6OJRXDPI4SRBL7ZJPUBTQY633ND2OLDQPMHDD4QBKAZ7IMJ3TUEBZ`
 
 ### Storage
 
