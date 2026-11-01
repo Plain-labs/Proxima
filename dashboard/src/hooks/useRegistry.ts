@@ -1,32 +1,102 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
-import type { Agent, FindAgentsParams } from '../lib/proxima';
-import { getProxima } from '../lib/proxima';
+import type { Agent, FindAgentsParams } from '@proxima/sdk';
+import { useStellarMind } from '../lib/stellarmind.tsx';
 
-// ─── useAgent ────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+/**
+ * State returned by useAgent hook.
+ */
 interface UseAgentState {
+  /** The fetched agent, or null if not found or still loading */
   agent: Agent | null;
+  /** Whether the hook is currently fetching data */
   loading: boolean;
+  /** Error message if the fetch failed */
   error: string | null;
+  /** Function to manually re-fetch the agent */
   refetch: () => void;
 }
 
 /**
+ * State returned by useAgentCount hook.
+ */
+interface UseAgentCountState {
+  /** Total number of registered agents on-chain */
+  count: bigint;
+  /** Whether the hook is currently fetching data */
+  loading: boolean;
+  /** Error message if the fetch failed */
+  error: string | null;
+}
+
+/**
+ * State returned by useAgentExists hook.
+ */
+interface UseAgentExistsState {
+  /** Whether the agent ID exists, or null if not yet checked */
+  exists: boolean | null;
+  /** Whether the hook is currently checking */
+  checking: boolean;
+}
+
+/**
+ * State returned by useAgentSearch hook.
+ */
+interface UseAgentSearchState {
+  /** Array of agents matching the search criteria */
+  agents: Agent[];
+  /** Whether the hook is currently fetching data */
+  loading: boolean;
+  /** Error message if the fetch failed */
+  error: string | null;
+  /** Function to manually re-fetch agents */
+  refetch: () => void;
+}
+
+// ─── useAgent ────────────────────────────────────────────────────────────────
+
+/**
  * Fetch a single agent by ID from the on-chain registry.
- *
+ * 
+ * This hook fetches an agent's full metadata including name, description,
+ * capabilities, pricing, reputation score, and activity status.
+ * 
+ * @param id - The unique agent identifier to fetch, or null to skip fetching
+ * @returns Object containing agent data, loading state, error, and refetch function
+ * 
  * @example
- * const { agent, loading, error } = useAgent('gpt-inference-v2')
+ * ```tsx
+ * function AgentDetails({ agentId }: { agentId: string }) {
+ *   const { agent, loading, error, refetch } = useAgent(agentId);
+ *   
+ *   if (loading) return <Spinner />;
+ *   if (error) return <Error message={error} />;
+ *   if (!agent) return <NotFound />;
+ *   
+ *   return (
+ *     <div>
+ *       <h1>{agent.name}</h1>
+ *       <p>{agent.description}</p>
+ *       <span>Price: {agent.priceDisplay}</span>
+ *       <span>Reputation: {agent.reputationDisplay}</span>
+ *       <button onClick={refetch}>Refresh</button>
+ *     </div>
+ *   );
+ * }
+ * ```
  */
 export function useAgent(id: string | null): UseAgentState {
+  const proxima = useStellarMind();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetchAgent = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-      const proxima = getProxima();
       const result = await proxima.registry.getAgent(id);
       setAgent(result);
     } catch (err) {
@@ -35,25 +105,43 @@ export function useAgent(id: string | null): UseAgentState {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, proxima]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => {
+    fetchAgent();
+  }, [fetchAgent]);
 
-  return { agent, loading, error, refetch: fetch };
+  return { agent, loading, error, refetch: fetchAgent };
 }
 
 // ─── useAgentCount ───────────────────────────────────────────────────────────
 
-interface UseAgentCountState {
-  count: bigint;
-  loading: boolean;
-  error: string | null;
-}
-
 /**
  * Return the total number of agents registered on-chain.
+ * 
+ * This hook fetches the agent count once on mount. The count represents
+ * all agents ever registered, including inactive ones.
+ * 
+ * @returns Object containing the count as bigint, loading state, and error
+ * 
+ * @example
+ * ```tsx
+ * function RegistryStats() {
+ *   const { count, loading, error } = useAgentCount();
+ *   
+ *   if (loading) return <span>Loading...</span>;
+ *   if (error) return <span>Error: {error}</span>;
+ *   
+ *   return (
+ *     <div>
+ *       <strong>{count.toString()}</strong> agents registered
+ *     </div>
+ *   );
+ * }
+ * ```
  */
 export function useAgentCount(): UseAgentCountState {
+  const proxima = useStellarMind();
   const [count, setCount] = useState<bigint>(0n);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,13 +149,22 @@ export function useAgentCount(): UseAgentCountState {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getProxima()
-      .registry.agentCount()
-      .then((n: bigint) => { if (!cancelled) setCount(n); })
-      .catch((err: unknown) => { if (!cancelled) setError((err as Error).message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+    setError(null);
+    proxima.registry
+      .agentCount()
+      .then((n: bigint) => {
+        if (!cancelled) setCount(n);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError((err as Error).message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [proxima]);
 
   return { count, loading, error };
 }
@@ -75,13 +172,37 @@ export function useAgentCount(): UseAgentCountState {
 // ─── useAgentExists ──────────────────────────────────────────────────────────
 
 /**
- * Check whether an agent ID is already registered.
+ * Check whether an agent ID is already registered on-chain.
+ * 
  * Useful for the registration form to show an availability badge.
+ * Includes a 400ms debounce to avoid excessive RPC calls on rapid input changes.
+ * 
+ * @param id - The agent ID to check (must be at least 2 characters)
+ * @returns Object containing exists status and checking flag
+ * 
+ * @example
+ * ```tsx
+ * function AgentIdInput() {
+ *   const [id, setId] = useState('');
+ *   const { exists, checking } = useAgentExists(id);
+ *   
+ *   return (
+ *     <div>
+ *       <input
+ *         value={id}
+ *         onChange={(e) => setId(e.target.value)}
+ *         placeholder="Enter agent ID"
+ *       />
+ *       {checking && <span>Checking...</span>}
+ *       {exists === true && <span style={{ color: 'red' }}>ID taken</span>}
+ *       {exists === false && <span style={{ color: 'green' }}>Available</span>}
+ *     </div>
+ *   );
+ * }
+ * ```
  */
-export function useAgentExists(id: string): {
-  exists: boolean | null;
-  checking: boolean;
-} {
+export function useAgentExists(id: string): UseAgentExistsState {
+  const proxima = useStellarMind();
   const [exists, setExists] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -91,122 +212,117 @@ export function useAgentExists(id: string): {
       return;
     }
     let cancelled = false;
-    // Debounce by 400ms so we don't hammer the RPC on every keystroke
     const timer = setTimeout(() => {
       setChecking(true);
-      getProxima()
-        .registry.agentExists(id)
-        .then((result: boolean) => { if (!cancelled) setExists(result); })
-        .catch(() => { if (!cancelled) setExists(null); })
-        .finally(() => { if (!cancelled) setChecking(false); });
+      proxima.registry
+        .agentExists(id)
+        .then((result: boolean) => {
+          if (!cancelled) setExists(result);
+        })
+        .catch(() => {
+          if (!cancelled) setExists(null);
+        })
+        .finally(() => {
+          if (!cancelled) setChecking(false);
+        });
     }, 400);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [id]);
+  }, [id, proxima]);
 
   return { exists, checking };
 }
 
-// ─── useAgents ────────────────────────────────────────────────────────────────
+// ─── useAgentSearch ──────────────────────────────────────────────────────────
 
 /**
- * Fetch agents from the on-chain registry using the Proxima SDK's find() method.
- * Falls back to the mock agent list if the RPC is unavailable or returns no results
- * (e.g. the contract has no registered agents yet on testnet).
- *
- * @param params  Filter / sort criteria (same as FindAgentsParams + sortBy)
+ * Search for agents matching filter criteria from the on-chain registry.
+ * 
+ * This hook fetches agents using the Proxima SDK's find() method and
+ * automatically re-fetches when search parameters change. Results are
+ * sorted by reputation descending by default.
+ * 
+ * @param params - Filter and sort criteria for the agent search
+ * @returns Object containing agents array, loading state, error, and refetch function
+ * 
+ * @example
+ * ```tsx
+ * function ImageAgents() {
+ *   const { agents, loading, error, refetch } = useAgentSearch({
+ *     capability: 'image-generation',
+ *     maxPrice: '0.05',
+ *     activeOnly: true,
+ *   });
+ *   
+ *   if (loading) return <Spinner />;
+ *   if (error) return <Error message={error} onRetry={refetch} />;
+ *   
+ *   return (
+ *     <ul>
+ *       {agents.map((agent) => (
+ *         <li key={agent.id}>
+ *           {agent.name} - {agent.priceDisplay}
+ *         </li>
+ *       ))}
+ *     </ul>
+ *   );
+ * }
+ * ```
+ * 
+ * @example
+ * // Search with multiple filters
+ * ```tsx
+ * const { agents } = useAgentSearch({
+ *   capability: 'text-generation',
+ *   minReputation: 80,
+ *   maxPrice: '0.02',
+ *   activeOnly: true,
+ * });
+ * ```
  */
-export function useAgents(
-  params: FindAgentsParams & { sortBy?: 'reputation' | 'calls' | 'price' } = {}
-): {
-  agents: MockAgent[];
-  loading: boolean;
-  error: string | null;
-  usingMock: boolean;
-  refetch: () => void;
-} {
-  const { capability, maxPrice, minReputation, activeOnly, sortBy = 'reputation' } = params;
+export function useAgentSearch(params: FindAgentsParams = {}): UseAgentSearchState {
+  const proxima = useStellarMind();
+  const { capability, maxPrice, minReputation, activeOnly } = params;
 
-  const [agents, setAgents] = useState<MockAgent[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [usingMock, setUsingMock] = useState(false);
 
   const fetchAgents = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const proxima = getProxima();
-      const raw: Agent[] = await proxima.registry.find({
+      const results = await proxima.registry.find({
         capability,
         maxPrice,
         minReputation,
         activeOnly,
       });
-
-      if (raw.length === 0) {
-        // No on-chain agents yet — show mock data so the UI is useful
-        setAgents(
-          useMockAgents({ capability, maxPrice, minReputation, activeOnly, sortBy })
-        );
-        setUsingMock(true);
-      } else {
-        // Map SDK Agent → MockAgent shape so AgentCard stays unchanged
-        const mapped: MockAgent[] = raw
-          .map((a) => ({
-            id: a.id,
-            name: a.name,
-            description: a.description,
-            capabilities: a.capabilities,
-            priceDisplay: a.priceDisplay,
-            reputationDisplay: a.reputationDisplay,
-            reputation: a.reputation,
-            totalCalls: Number(a.totalCalls),
-            isActive: a.isActive,
-            owner: a.owner,
-            registeredAt: new Date(a.registeredAt * 1000)
-              .toISOString()
-              .split('T')[0],
-          }))
-          .sort((a, b) => {
-            if (sortBy === 'reputation') return b.reputation - a.reputation;
-            if (sortBy === 'calls') return b.totalCalls - a.totalCalls;
-            if (sortBy === 'price')
-              return (
-                parseFloat(a.priceDisplay) - parseFloat(b.priceDisplay)
-              );
-            return 0;
-          });
-        setAgents(mapped);
-        setUsingMock(false);
-      }
+      setAgents(results);
     } catch (err) {
-      // RPC unavailable — fall back to mock data silently
-      setAgents(
-        useMockAgents({ capability, maxPrice, minReputation, activeOnly, sortBy })
-      );
-      setUsingMock(true);
       setError((err as Error).message);
+      setAgents([]);
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [capability, maxPrice, minReputation, activeOnly, sortBy]);
+  }, [proxima, capability, maxPrice, minReputation, activeOnly]);
 
   useEffect(() => {
     fetchAgents();
   }, [fetchAgents]);
 
-  return { agents, loading, error, usingMock, refetch: fetchAgents };
+  return { agents, loading, error, refetch: fetchAgents };
 }
 
-// ─── useMockAgents ───────────────────────────────────────────────────────────
-// Temporary stand-in for useAgents() until the indexer integration is complete.
-// The dashboard uses this so the UI works without a live RPC connection.
+// ─── Mock Data (for development/demo purposes) ───────────────────────────────
 
+/**
+ * Mock agent data structure used when the RPC is unavailable.
+ * Matches the Agent type with display-friendly fields.
+ */
 export interface MockAgent {
   id: string;
   name: string;
@@ -221,6 +337,9 @@ export interface MockAgent {
   registeredAt: string;
 }
 
+/**
+ * Sample agent data for UI development when on-chain data is unavailable.
+ */
 export const MOCK_AGENTS: MockAgent[] = [
   {
     id: 'gpt-inference-v2',
@@ -290,13 +409,19 @@ export const MOCK_AGENTS: MockAgent[] = [
 ];
 
 /**
- * Filter and sort the mock agent list.
- * Once the indexer integration lands, this hook will query the chain instead.
+ * Filter and sort mock agent data for development/demo purposes.
+ * 
+ * @param params - Filter and sort criteria
+ * @returns Filtered and sorted mock agents
+ * 
+ * @internal
  */
-export function useMockAgents(params: FindAgentsParams & { sortBy?: 'reputation' | 'calls' | 'price' } = {}) {
+export function filterMockAgents(
+  params: FindAgentsParams & { sortBy?: 'reputation' | 'calls' | 'price' } = {}
+): MockAgent[] {
   const { capability, maxPrice, minReputation, activeOnly, sortBy = 'reputation' } = params;
 
-  const filtered = MOCK_AGENTS.filter((a) => {
+  return MOCK_AGENTS.filter((a) => {
     if (activeOnly && !a.isActive) return false;
     if (capability && !a.capabilities.includes(capability)) return false;
     if (minReputation !== undefined && a.reputation / 100 < minReputation) return false;
@@ -306,11 +431,17 @@ export function useMockAgents(params: FindAgentsParams & { sortBy?: 'reputation'
     }
     return true;
   }).sort((a, b) => {
-    if (sortBy === 'reputation') return b.reputation - a.reputation;
-    if (sortBy === 'calls') return b.totalCalls - a.totalCalls;
-    if (sortBy === 'price') return parseFloat(a.priceDisplay) - parseFloat(b.priceDisplay);
-    return 0;
+    switch (sortBy) {
+      case 'reputation':
+        return b.reputation - a.reputation;
+      case 'calls':
+        return b.totalCalls - a.totalCalls;
+      case 'price':
+        return parseFloat(a.priceDisplay) - parseFloat(b.priceDisplay);
+      default: {
+        const _exhaustiveCheck: never = sortBy;
+        return _exhaustiveCheck;
+      }
+    }
   });
-
-  return filtered;
 }

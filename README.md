@@ -2,7 +2,8 @@
 
 **Open-source AI Agent Registry & Autonomous Payment Gateway on Stellar**.
 
-Live Link: https://nullius-taupe.vercel.app/
+Live Link: https://proxima-beryl.vercel.app/
+
 
 Contract Address-
 
@@ -78,6 +79,9 @@ const policy = await mind.policy.create({ agent: agentAddress, dailyLimit: '10',
 // Agent pays autonomously
 await mind.policy.pay({ policyId, recipient, amount: '0.01', memo: 'API call #4821' })
 ```
+
+For complete setup, registration, policy, payment, and error-handling examples,
+see [docs/SDK_GUIDE.md](./docs/SDK_GUIDE.md).
 
 ### Layer 4 — Explorer Dashboard (`/dashboard`)
 A beautiful React web app for:
