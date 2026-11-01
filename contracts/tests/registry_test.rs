@@ -394,13 +394,13 @@ fn test_reputation_update() {
     );
 
     // Perfect score on first call — Bayesian: (5000*0 + 10000) / 1 = 10000
-    client.update_reputation(&String::from_str(&env, "rep-test"), &10000_u32);
+    client.update_reputation(&owner, &String::from_str(&env, "rep-test"), &10000_u32);
     let agent = client.get_agent(&String::from_str(&env, "rep-test"));
     assert_eq!(agent.total_calls, 1);
     assert_eq!(agent.reputation, 10000);
 
     // Zero score on second call — Bayesian: (10000*1 + 0) / 2 = 5000
-    client.update_reputation(&String::from_str(&env, "rep-test"), &0_u32);
+    client.update_reputation(&owner, &String::from_str(&env, "rep-test"), &0_u32);
     let agent = client.get_agent(&String::from_str(&env, "rep-test"));
     assert_eq!(agent.total_calls, 2);
     assert_eq!(agent.reputation, 5000);
@@ -412,9 +412,9 @@ fn test_reputation_clamps_above_10000() {
     let contract_id = env.register_contract(None, RegistryContract);
     let client = RegistryContractClient::new(&env, &contract_id);
 
-    register_agent(&env, &client, "clamp-test");
+    let (owner, _issuer, _id) = register_agent(&env, &client, "clamp-test");
 
-    client.update_reputation(&String::from_str(&env, "clamp-test"), &99999_u32);
+    client.update_reputation(&owner, &String::from_str(&env, "clamp-test"), &99999_u32);
     let agent = client.get_agent(&String::from_str(&env, "clamp-test"));
     assert!(agent.reputation <= 10000);
 }
@@ -425,10 +425,10 @@ fn test_reputation_bayesian_average_converges() {
     let contract_id = env.register_contract(None, RegistryContract);
     let client = RegistryContractClient::new(&env, &contract_id);
 
-    register_agent(&env, &client, "bayesian-test");
+    let (owner, _issuer, _id) = register_agent(&env, &client, "bayesian-test");
 
     for _ in 0..10 {
-        client.update_reputation(&String::from_str(&env, "bayesian-test"), &10000_u32);
+        client.update_reputation(&owner, &String::from_str(&env, "bayesian-test"), &10000_u32);
     }
     let agent = client.get_agent(&String::from_str(&env, "bayesian-test"));
     assert_eq!(agent.total_calls, 10);
@@ -440,11 +440,33 @@ fn test_reputation_update_nonexistent_agent_panics() {
     let env = create_test_env();
     let contract_id = env.register_contract(None, RegistryContract);
     let client = RegistryContractClient::new(&env, &contract_id);
+    // Use any address — the panic happens at agent lookup before the auth check matters
+    let caller = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        client.update_reputation(&String::from_str(&env, "ghost"), &5000_u32);
+        client.update_reputation(&caller, &String::from_str(&env, "ghost"), &5000_u32);
     }));
     assert!(result.is_err());
+}
+
+#[test]
+fn test_reputation_unauthorized_caller_panics() {
+    // A stranger (not the agent owner) must not be able to submit a rating.
+    let env = create_test_env();
+    let contract_id = env.register_contract(None, RegistryContract);
+    let client = RegistryContractClient::new(&env, &contract_id);
+
+    // Register agent normally (mock_all_auths only for the registration step)
+    let (owner, _issuer, _id) = register_agent(&env, &client, "auth-rep-test");
+    let _ = owner; // owner exists but we intentionally use a different caller
+
+    let stranger = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // No mock_all_auths — stranger's require_auth() will fail
+        client.update_reputation(&stranger, &String::from_str(&env, "auth-rep-test"), &8000_u32);
+    }));
+    assert!(result.is_err(), "A stranger must not be allowed to update reputation");
 }
 
 // ─── deactivate ───────────────────────────────────────────────────────────────

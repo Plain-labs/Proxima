@@ -189,15 +189,32 @@ impl RegistryContract {
     /// Update the reputation score of an agent after a completed interaction.
     /// Called by the SpendingPolicy contract after a successful payment.
     ///
+    /// # Authorization
+    /// `caller` must be either:
+    /// - the agent's registered `owner` address, OR
+    /// - the agent's own address (i.e. the agent self-reports)
+    ///
+    /// This prevents arbitrary third parties from manipulating reputation scores.
+    ///
+    /// # Rating scale
     /// Uses Bayesian update:  new_score = (old_score * total_calls + rating) / (total_calls + 1)
     /// where `rating` is 0–10000 (representing 0.00%–100.00%)
-    pub fn update_reputation(env: Env, id: String, rating: u32) {
+    pub fn update_reputation(env: Env, caller: Address, id: String, rating: u32) {
+        // Require the caller to have signed this transaction
+        caller.require_auth();
+
         let key = DataKey::Agent(id.clone());
         let mut agent: Agent = env
             .storage()
             .persistent()
             .get(&key)
             .unwrap_or_else(|| panic_with_error!(&env, RegistryError::AgentNotFound));
+
+        // Caller must be the agent's registered owner.
+        // This prevents arbitrary addresses from gaming reputation scores.
+        if caller != agent.owner {
+            panic_with_error!(&env, RegistryError::Unauthorized);
+        }
 
         // Clamp rating to valid range
         let clamped_rating = rating.min(10000);

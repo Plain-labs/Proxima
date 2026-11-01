@@ -359,9 +359,12 @@ export class RegistryClient {
    * Submit a reputation rating for an agent after a completed interaction.
    * Rating must be between 0 and 10000 (representing 0.00% – 100.00%).
    *
+   * The caller must be the agent's registered owner — the contract enforces
+   * this with `require_auth()` and rejects unauthorized callers on-chain.
+   *
    * @param id      Agent ID to rate
    * @param rating  Score 0–10000
-   * @param keypair Keypair of the caller
+   * @param keypair Keypair of the agent owner (must match the stored owner address)
    */
   async updateReputation(id: string, rating: number, keypair: Keypair): Promise<void> {
     if (rating < 0 || rating > 10000) {
@@ -373,7 +376,9 @@ export class RegistryClient {
 
     const account = await this.rpc.getAccount(keypair.publicKey());
 
+    // caller is now the first argument — contract verifies it matches agent.owner
     const args = [
+      nativeToScVal(keypair.publicKey(), { type: 'address' }),
       nativeToScVal(id, { type: 'string' }),
       nativeToScVal(rating, { type: 'u32' }),
     ];
