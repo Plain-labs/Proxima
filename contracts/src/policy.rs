@@ -54,6 +54,7 @@ impl From<PolicyError> for soroban_sdk::Error {
 pub struct PolicyContract;
 
 #[contractimpl]
+#[allow(clippy::too_many_arguments)]
 impl PolicyContract {
     /// Create a new spending policy that authorizes an AI agent to make
     /// autonomous payments on behalf of the policy owner, within defined limits.
@@ -67,6 +68,7 @@ impl PolicyContract {
     /// * `allowed_recipient`  - Optional: restrict to a specific recipient
     ///
     /// Returns the new policy ID.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_policy(
         env: Env,
         owner: Address,

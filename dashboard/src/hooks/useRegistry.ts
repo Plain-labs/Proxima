@@ -317,6 +317,120 @@ export function useAgentSearch(params: FindAgentsParams = {}): UseAgentSearchSta
   return { agents, loading, error, refetch: fetchAgents };
 }
 
+// ─── useNetworkStats ─────────────────────────────────────────────────────────
+
+/**
+ * State returned by useNetworkStats hook.
+ */
+interface UseNetworkStatsState {
+  /** Estimated total USDC transacted across all agents, formatted for display (e.g. "$48,291") */
+  totalUsdcTransacted: string;
+  /** Average reputation across all active agents, formatted for display (e.g. "87.40%") */
+  avgReputation: string;
+  /** Whether the stats are still being computed */
+  loading: boolean;
+}
+
+/**
+ * Derive network-wide stats from the live agent registry.
+ *
+ * Computes two values:
+ * - **Total USDC transacted** — sum of (pricePerCall × totalCalls) across all active agents.
+ *   This is an estimate: it assumes every call used the listed price, which is directionally
+ *   correct but not an exact ledger sum. A future version could pull this from Horizon
+ *   payment records for a precise figure.
+ * - **Average reputation** — mean reputation score across all active agents (0–100.00%).
+ *
+ * Falls back to mock agent data when on-chain data is unavailable, and shows "–" while loading.
+ *
+ * @example
+ * ```tsx
+ * const { totalUsdcTransacted, avgReputation, loading } = useNetworkStats();
+ * // totalUsdcTransacted → "$48,291"
+ * // avgReputation       → "87.40%"
+ * ```
+ */
+export function useNetworkStats(): UseNetworkStatsState {
+  const proxima = useStellarMind();
+  const [totalUsdcTransacted, setTotalUsdcTransacted] = useState<string>("–");
+  const [avgReputation, setAvgReputation] = useState<string>("–");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
+    proxima.registry
+      .find({ activeOnly: false })
+      .then((agents) => {
+        if (cancelled) return;
+
+        const activeAgents = agents.filter((a) => a.isActive);
+        const source = activeAgents.length > 0 ? activeAgents : agents;
+
+        if (source.length === 0) {
+          // No on-chain agents — fall back to mock data
+          const mockActive = MOCK_AGENTS.filter((a) => a.isActive);
+          const mockSource = mockActive.length > 0 ? mockActive : MOCK_AGENTS;
+
+          const mockTotal = mockSource.reduce((sum, a) => {
+            const price = parseFloat(a.priceDisplay.split(" ")[0]);
+            return sum + price * a.totalCalls;
+          }, 0);
+
+          const mockAvgRep =
+            mockSource.reduce((sum, a) => sum + a.reputation, 0) / mockSource.length;
+
+          setTotalUsdcTransacted(
+            "$" + Math.round(mockTotal).toLocaleString()
+          );
+          setAvgReputation((mockAvgRep / 100).toFixed(2) + "%");
+        } else {
+          // Derive from live on-chain agents
+          // pricePerCall is in stroops (bigint); 1 USDC = 10_000_000 stroops
+          const STROOPS_PER_USDC = 10_000_000n;
+
+          const totalStroops = source.reduce((sum, a) => {
+            return sum + a.pricePerCall * a.totalCalls;
+          }, 0n);
+
+          const totalUsdc = Number(totalStroops / STROOPS_PER_USDC);
+
+          const avgRep =
+            source.reduce((sum, a) => sum + a.reputation, 0) / source.length;
+
+          setTotalUsdcTransacted(
+            "$" + Math.round(totalUsdc).toLocaleString()
+          );
+          setAvgReputation((avgRep / 100).toFixed(2) + "%");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // RPC unavailable — derive from mock data
+        const mockActive = MOCK_AGENTS.filter((a) => a.isActive);
+        const mockTotal = mockActive.reduce((sum, a) => {
+          const price = parseFloat(a.priceDisplay.split(" ")[0]);
+          return sum + price * a.totalCalls;
+        }, 0);
+        const mockAvgRep =
+          mockActive.reduce((sum, a) => sum + a.reputation, 0) / mockActive.length;
+
+        setTotalUsdcTransacted("$" + Math.round(mockTotal).toLocaleString());
+        setAvgReputation((mockAvgRep / 100).toFixed(2) + "%");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [proxima]);
+
+  return { totalUsdcTransacted, avgReputation, loading };
+}
+
 // ─── Mock Data (for development/demo purposes) ───────────────────────────────
 
 /**
