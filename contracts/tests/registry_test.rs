@@ -338,7 +338,7 @@ fn test_agent_count() {
 
     for i in 0..3u32 {
         let owner = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(&env);
-        let id_str = soroban_sdk::String::from_str(&env, &format!("agent-{}", i));
+        let id_str = soroban_sdk::String::from_str(&env, &format!("agent-{i}"));
         client.register(
             &owner,
             &id_str,
