@@ -9,7 +9,13 @@ fn create_test_env() -> Env {
 }
 
 /// Deploy the policy contract and return (client, owner, issuer).
-fn setup(env: &Env) -> (PolicyContractClient<'_>, soroban_sdk::Address, soroban_sdk::Address) {
+fn setup(
+    env: &Env,
+) -> (
+    PolicyContractClient<'_>,
+    soroban_sdk::Address,
+    soroban_sdk::Address,
+) {
     let contract_id = env.register_contract(None, PolicyContract);
     let client = PolicyContractClient::new(env, &contract_id);
     let owner = <soroban_sdk::Address as soroban_sdk::testutils::Address>::generate(env);

@@ -464,9 +464,16 @@ fn test_reputation_unauthorized_caller_panics() {
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         // No mock_all_auths — stranger's require_auth() will fail
-        client.update_reputation(&stranger, &String::from_str(&env, "auth-rep-test"), &8000_u32);
+        client.update_reputation(
+            &stranger,
+            &String::from_str(&env, "auth-rep-test"),
+            &8000_u32,
+        );
     }));
-    assert!(result.is_err(), "A stranger must not be allowed to update reputation");
+    assert!(
+        result.is_err(),
+        "A stranger must not be allowed to update reputation"
+    );
 }
 
 // ─── deactivate ───────────────────────────────────────────────────────────────
@@ -534,7 +541,11 @@ fn test_update_agent_can_deactivate_via_is_active_flag() {
 
     register_agent(&env, &client, "toggle-test");
 
-    assert!(client.get_agent(&String::from_str(&env, "toggle-test")).is_active);
+    assert!(
+        client
+            .get_agent(&String::from_str(&env, "toggle-test"))
+            .is_active
+    );
 
     client.update_agent(
         &String::from_str(&env, "toggle-test"),
@@ -546,7 +557,11 @@ fn test_update_agent_can_deactivate_via_is_active_flag() {
         &Bytes::new(&env),
     );
 
-    assert!(!client.get_agent(&String::from_str(&env, "toggle-test")).is_active);
+    assert!(
+        !client
+            .get_agent(&String::from_str(&env, "toggle-test"))
+            .is_active
+    );
 }
 
 #[test]
