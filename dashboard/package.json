@@ -5,12 +5,12 @@
   "description": "Proxima Explorer Dashboard — AI Agent Registry & Spending Policy Manager",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node ../node_modules/vite/bin/vite.js build",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
-    "@proxima/sdk": "workspace:*",
+    "@proxima/sdk": "0.1.0",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^13.0.0",
     "react": "^18.3.0",

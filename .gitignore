@@ -12,6 +12,7 @@ yarn-error.log*
 .pnp
 .pnp.js
 bun.lockb           # regenerated automatically
+bun.lock             # using npm (package-lock.json) instead
 
 # ─── Vite cache ───────────────────────────────────────────────────────────────
 **/.vite/

@@ -13,7 +13,7 @@
     "build:sdk": "cd sdk && npm run build",
     "test:sdk": "cd sdk && npm test",
     "dev:dashboard": "cd dashboard && npm run dev",
-    "build:dashboard": "cd dashboard && npm run build",
+    "build:dashboard": "cd dashboard && node ../node_modules/vite/bin/vite.js build",
     "build:all": "npm run build:sdk && npm run build:dashboard",
     "test:all": "npm run test:contracts && npm run test:sdk"
   },
@@ -29,6 +29,7 @@
   ],
   "author": "Proxima Contributors",
   "license": "MIT",
+  "packageManager": "npm@11.11.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/IyanuOluwaJesuloba/Proxima"
