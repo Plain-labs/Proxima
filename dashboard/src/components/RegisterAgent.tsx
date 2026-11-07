@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useFreighter } from "../hooks/useFreighter";
 import { useAgentExists } from "../hooks/useRegistry";
 import { getProxima, txExplorerUrl } from "../lib/proxima";
+import { USDC_ISSUER } from "@proxima/sdk";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,6 +116,7 @@ export default function RegisterAgent() {
         capabilities: capabilityList,
         pricePerCall: form.pricePerCall,
         paymentAsset: form.paymentAsset,
+        paymentIssuer: USDC_ISSUER.testnet, // testnet USDC issuer; resolved from asset in production
         endpointUrl: form.endpointUrl || "",
         ownerPublicKey: freighter.publicKey,
       });
