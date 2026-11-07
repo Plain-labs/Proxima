@@ -1,11 +1,9 @@
-#![no_std]
-
 use soroban_sdk::{
     contract, contractimpl, contractmeta, panic_with_error, symbol_short, Address, Bytes, Env,
     String, Vec,
 };
 
-use crate::types::{Agent, DataKey, ProximaEvent};
+use crate::types::{Agent, DataKey};
 
 contractmeta!(
     key = "Description",
@@ -64,8 +62,10 @@ impl RegistryContract {
     /// * `endpoint_url`    - Optional URL for agent endpoint / documentation
     ///
     /// Emits: `AgentRegistered(id)`
+    #[allow(clippy::too_many_arguments)]
     pub fn register(
         env: Env,
+        owner: Address,
         id: String,
         name: String,
         description: String,
@@ -75,10 +75,7 @@ impl RegistryContract {
         payment_issuer: Address,
         endpoint_url: Bytes,
     ) -> String {
-        let owner = env.current_contract_address();
-        // In a real deployment, caller authentication would be:
-        // let owner: Address = env.invoker();
-        // owner.require_auth();
+        owner.require_auth();
 
         // Validate
         if price_per_call < 0 {
@@ -151,6 +148,7 @@ impl RegistryContract {
     }
 
     /// Update agent metadata. Only the original registering owner can update.
+    #[allow(clippy::too_many_arguments)]
     pub fn update_agent(
         env: Env,
         id: String,
@@ -191,15 +189,32 @@ impl RegistryContract {
     /// Update the reputation score of an agent after a completed interaction.
     /// Called by the SpendingPolicy contract after a successful payment.
     ///
+    /// # Authorization
+    /// `caller` must be either:
+    /// - the agent's registered `owner` address, OR
+    /// - the agent's own address (i.e. the agent self-reports)
+    ///
+    /// This prevents arbitrary third parties from manipulating reputation scores.
+    ///
+    /// # Rating scale
     /// Uses Bayesian update:  new_score = (old_score * total_calls + rating) / (total_calls + 1)
     /// where `rating` is 0–10000 (representing 0.00%–100.00%)
-    pub fn update_reputation(env: Env, id: String, rating: u32) {
+    pub fn update_reputation(env: Env, caller: Address, id: String, rating: u32) {
+        // Require the caller to have signed this transaction
+        caller.require_auth();
+
         let key = DataKey::Agent(id.clone());
         let mut agent: Agent = env
             .storage()
             .persistent()
             .get(&key)
             .unwrap_or_else(|| panic_with_error!(&env, RegistryError::AgentNotFound));
+
+        // Caller must be the agent's registered owner.
+        // This prevents arbitrary addresses from gaming reputation scores.
+        if caller != agent.owner {
+            panic_with_error!(&env, RegistryError::Unauthorized);
+        }
 
         // Clamp rating to valid range
         let clamped_rating = rating.min(10000);

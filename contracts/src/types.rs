@@ -1,5 +1,3 @@
-#![no_std]
-
 use soroban_sdk::{contracttype, Address, Bytes, String, Vec};
 
 /// Represents a registered AI agent in the Proxima registry.

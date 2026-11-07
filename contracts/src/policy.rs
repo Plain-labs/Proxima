@@ -1,5 +1,3 @@
-#![no_std]
-
 use soroban_sdk::{
     contract, contractimpl, contractmeta, panic_with_error, symbol_short, token, Address, Env,
     String,
@@ -56,6 +54,7 @@ impl From<PolicyError> for soroban_sdk::Error {
 pub struct PolicyContract;
 
 #[contractimpl]
+#[allow(clippy::too_many_arguments)]
 impl PolicyContract {
     /// Create a new spending policy that authorizes an AI agent to make
     /// autonomous payments on behalf of the policy owner, within defined limits.
@@ -69,8 +68,10 @@ impl PolicyContract {
     /// * `allowed_recipient`  - Optional: restrict to a specific recipient
     ///
     /// Returns the new policy ID.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_policy(
         env: Env,
+        owner: Address,
         agent: Address,
         max_per_tx: i128,
         daily_limit: i128,
@@ -78,8 +79,7 @@ impl PolicyContract {
         issuer: Address,
         allowed_recipient: Option<Address>,
     ) -> u64 {
-        let owner = env.current_contract_address();
-        // Production: let owner: Address = env.invoker(); owner.require_auth();
+        owner.require_auth();
 
         if max_per_tx <= 0 || daily_limit <= 0 {
             panic_with_error!(&env, PolicyError::InvalidAmount);

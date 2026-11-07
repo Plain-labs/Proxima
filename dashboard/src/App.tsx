@@ -5,7 +5,7 @@ import RegisterAgent from "./components/RegisterAgent";
 import ActivityFeed from "./components/ActivityFeed";
 import WalletConnect from "./components/WalletConnect";
 import ProximaLogo from "./components/ProximaLogo";
-import { useAgentCount } from "./hooks/useRegistry";
+import { useAgentCount, useNetworkStats } from "./hooks/useRegistry";
 import { usePolicyCount } from "./hooks/usePolicy";
 
 type Tab = "explore" | "register" | "policies" | "activity";
@@ -30,6 +30,7 @@ export default function App() {
   // Live on-chain stats — fall back to "–" while loading
   const { count: agentCount, loading: agentCountLoading } = useAgentCount();
   const { count: policyCount, loading: policyCountLoading } = usePolicyCount();
+  const { totalUsdcTransacted, avgReputation, loading: statsLoading } = useNetworkStats();
 
   const STATS = [
     {
@@ -42,8 +43,8 @@ export default function App() {
       value: policyCountLoading ? "–" : policyCount.toLocaleString(),
       delta: "on-chain total",
     },
-    { label: "USDC Transacted", value: "$48,291", delta: "last 24h" },
-    { label: "Avg Reputation", value: "87.4%", delta: "across all agents" },
+    { label: "USDC Transacted", value: statsLoading ? "–" : totalUsdcTransacted, delta: "est. all-time" },
+    { label: "Avg Reputation",  value: statsLoading ? "–" : avgReputation,        delta: "across all agents" },
   ];
 
   /** Navigate to Policy Manager with agent pre-filled */

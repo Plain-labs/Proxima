@@ -1,50 +1,85 @@
 # Changelog
 
 All notable changes to Proxima are documented here.
+Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — chore/ci-and-scaffolding
-
-### SDK
-
-- **feat:** Add `buildRegisterTx`, `buildCreatePolicyTx`, `buildRevokePolicyTx`, and `submitSignedTx` methods to `RegistryClient` and `PolicyClient` for browser-wallet (Freighter) signing flows. Transactions are built and prepared on-chain, returned as unsigned XDR, signed externally, and submitted via `submitSignedTx`.
-- **fix:** Defer `Contract` instantiation in `RegistryClient` and `PolicyClient` to first method call (lazy accessor). Previously the constructor threw on empty contract IDs (e.g. mainnet before deployment).
-- **test:** Add 39 unit tests via `bun test` across three suites:
-  - `stellar.test.ts` — `toStroops`, `fromStroops`, `formatReputation`, `resolveConfig`, `USDC_ISSUER`
-  - `types.test.ts` — `ProximaError`, `ErrorCodes`
-  - `proxima.test.ts` — `Proxima`, `RegistryClient`, `PolicyClient` instantiation
-- **chore:** Replace Jest + ts-jest with `bun test`. Remove `jest.config.ts`. Update `package.json` test script.
-
-### Dashboard
-
-- **feat:** Wire `RegisterAgent` "DEPLOY TO STELLAR" button to Freighter + SDK. Builds an unsigned transaction via `registry.buildRegisterTx()`, prompts Freighter to sign, submits via `submitSignedTx()`. Shows spinner during signing, success screen with explorer link, error screen with retry.
-- **feat:** Extract `RegisterAgent` from `ActivityFeed.tsx` into its own dedicated file. `RegisterAgent.tsx` is now a proper standalone component.
-- **feat:** Add `IdAvailabilityBadge` to the Register Agent form — debounced `useAgentExists` check shows "AVAILABLE" / "ID TAKEN" / "checking..." inline as user types the agent ID. Agent ID field also enforces lowercase + hyphens only.
-- **feat:** Add wallet warning banner in `RegisterAgent` and `CreatePolicyForm` when Freighter is not connected.
-- **feat:** Wire `PolicyManager` "DEPLOY POLICY ON STELLAR" button to Freighter + SDK via `policy.buildCreatePolicyTx()` + `submitSignedTx()`. Shows loading state and a success banner with explorer TX link on confirmation.
-- **feat:** Wire `PolicyManager` "REVOKE" button with optimistic UI update and Freighter signing path (comment-documented for when real on-chain policy IDs replace mock data).
-- **feat:** Wire `AgentExplorer` to live on-chain registry via new `useAgents` hook. Falls back silently to mock data when RPC is unavailable or no agents are registered. Shows `DEMO DATA` badge when using mock data, `LOADING...` indicator while fetching.
-- **feat:** Replace hardcoded stats bar values in `App.tsx` with live `useAgentCount()` and `usePolicyCount()` hooks. Displays "–" while loading.
-- **fix:** Correct Horizon SSE URL format in `useEventFeed` — use `cursor=now` and per-contract streams instead of invalid `contract_id[]` array syntax.
-- **fix:** Fix XDR ScSymbol decoding in `useEventFeed.classifyTopics` — correctly strip the 8-byte XDR prefix (4-byte type + 4-byte length) before string matching.
+## [Unreleased]
 
 ### Contracts
+- **fix:** Require owner auth on `update_reputation()` — add `caller: Address` parameter with `caller.require_auth()` and `caller == agent.owner` assertion. Prevents arbitrary addresses from gaming reputation scores.
+- **fix:** Add `#[allow(clippy::too_many_arguments)]` to `PolicyContract` impl block and `create_policy()` to resolve macro-expanded Clippy false positives under `-D warnings`.
+- **fix:** Pin `rust-toolchain.toml` to `1.88` — the minimum version satisfying all transitive dependency constraints (`edition2024`, `darling@0.23`, `serde_with@3.21`). Declare `wasm32-unknown-unknown` target and `rustfmt`/`clippy` components in the file for reproducible dev environments.
+- **test:** Add `test_reputation_unauthorized_caller_panics` — verifies a stranger cannot submit a reputation rating.
+- **fix:** Update `format!("agent-{}", i)` → `format!("agent-{i}")` in `registry_test.rs` to satisfy `uninlined_format_args` lint.
 
-- **test:** Add 8 `execute_payment` tests to `policy_test.rs` covering: success path with token transfer, accumulated `spent_today`, per-tx limit exceeded, daily limit exceeded, payment on revoked policy, wrong recipient with `allowed_recipient` restriction, zero amount, and `remaining_allowance` decreases after payment. Uses `register_stellar_asset_contract_v2` + `StellarAssetClient::mint` for real token transfer simulation.
-- **test:** Expand `registry_test.rs` with 16 new tests covering: `agent_exists` (true/false), `get_agent` field correctness, zero-price agent, negative price rejection, empty capabilities rejection, `get_nonexistent_agent` panic, `agent_count` stability after deactivate, reputation clamping above 10000, Bayesian reputation convergence, reputation update on nonexistent agent, `deactivate` nonexistent, `update_agent` field changes, `update_agent` deactivation via `is_active` flag, `update_agent` negative price rejection.
+### Dashboard
+- **fix:** Replace hardcoded `$48,291` and `87.4%` stats with live derived values. New `useNetworkStats()` hook computes USDC transacted (`price_per_call × total_calls` summed across all agents) and average reputation from the live registry. Falls back to mock data when RPC is unavailable.
+- **refactor:** Extract `AgentCard` and `DisplayAgent` into standalone `AgentCard.tsx`. `AgentExplorer.tsx` now imports from it — removes ~200 lines of inline code.
+- **fix:** Remove redundant `targets`/`components` from CI workflow files — `dtolnay/rust-toolchain@stable` reads them from `rust-toolchain.toml`.
 
-### CI
-
-- **ci:** Update `test-sdk.yml` — drop Node.js version matrix, run `bun test` directly. SDK test job now single-pass with bun.
-
-### Docs
-
-- **docs:** Update `README.md` roadmap — mark Freighter integration, SDK unit tests, `execute_payment` tests, live dashboard data, and stats bar as complete.
-- **docs:** Add `CHANGELOG.md` (this file).
+### SDK
+- **fix:** Update `updateReputation()` to pass `keypair.publicKey()` as the `caller` argument to match the updated contract signature.
 
 ---
 
-## Earlier history
+## [0.1.1] — 2026-09-10
 
-See `git log` for full commit history prior to the unreleased sprint above.
+### Contracts
+- **fix:** Add `owner.require_auth()` to `register()` and `create_policy()` — both functions now enforce that the declared owner has signed the transaction.
+- **fix:** Remove test snapshots from git tracking.
+
+### Dashboard
+- **feat:** Add `ReputationSparkline` component to `AgentCard` expanded view — shows a mini sparkline of the agent's reputation trend over recent interactions.
+- **refactor:** Use `React.useId` for stable gradient IDs in the sparkline to avoid hydration mismatches.
+
+### SDK
+- **feat:** Add React hooks package (`useRegistry`, `usePolicy`, `useEventFeed`, `useFreighter`) for consuming the Proxima SDK in React applications.
+
+---
+
+## [0.1.0] — 2026-07-19
+
+Initial public release of the Proxima stack.
+
+### Contracts
+- Agent Registry Soroban contract (`registry.rs`) — register, get, update, deactivate, reputation, agent_count
+- Spending Policy Soroban contract (`policy.rs`) — create, execute_payment, revoke, is_authorized, remaining_allowance, policy_count
+- Shared types (`types.rs`) — `Agent`, `SpendingPolicy`, `PaymentRecord`, `ProximaEvent`, `DataKey`
+- 45 tests across two test files covering all state-modifying paths, authorization enforcement, Bayesian reputation math, and all `execute_payment` error conditions
+- Both contracts deployed to Stellar Testnet
+  - Registry: `CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R`
+  - Policy: `CCU6OJRXDPI4SRBL7ZJPUBTQY633ND2OLDQPMHDD4QBKAZ7IMJ3TUEBZ`
+- CI: `cargo fmt`, `clippy -D warnings`, `cargo test`, WASM build on every push to `/contracts`
+
+### SDK (`@proxima/sdk` v0.1.0)
+- `RegistryClient` — `getAgent`, `agentExists`, `agentCount`, `find`, `register`, `updateAgent`, `updateReputation`, `deactivate`
+- `PolicyClient` — `createPolicy`, `executePayment`, `revokePolicy`, `getPolicy`, `isAuthorized`, `remainingAllowance`, `policyCount`
+- Browser-wallet signing path — `buildRegisterTx`, `buildCreatePolicyTx`, `buildRevokePolicyTx`, `submitSignedTx` for Freighter integration
+- Stellar utilities — `toStroops`, `fromStroops`, `formatReputation`, `resolveConfig`, `USDC_ISSUER`
+- 39 unit tests via `bun test`
+- 4 working examples: `register-agent.ts`, `autonomous-payment.ts`, `x402-autonomous-payment.ts`, `x402-integration.ts`
+- Dual CJS + ESM output with TypeScript declarations
+- CI: type check, lint, `bun test`, build on every push to `/sdk`
+
+### Dashboard
+- Agent Explorer — live on-chain registry with search, capability filter, sort by reputation/calls/price, mock data fallback with `DEMO DATA` badge
+- Register Agent — Freighter-wired registration form with debounced ID availability badge, spinner, success/error screens
+- Policy Manager — create and revoke spending policies via Freighter
+- Activity Feed — real-time Stellar Horizon SSE event stream
+- Wallet Connect — Freighter connection and state management
+- Live on-chain stats bar — agent count and policy count from contract queries
+- Live deployment: https://nullius-taupe.vercel.app/
+
+### Docs
+- `ARCHITECTURE.md`, `CONTRACT_SPEC.md`, `SDK_GUIDE.md`, `DEPLOYMENT.md`, `SECURITY.md`
+- `SECURITY.md` includes full threat model, authorization model, known limitations, and responsible disclosure process
+
+---
+
+## [0.0.1] — 2026-06-09
+
+- Initial contract deployment and configuration
+- Monorepo scaffold with `sdk` and `dashboard` workspaces
+- Basic SDK structure and dependency installation

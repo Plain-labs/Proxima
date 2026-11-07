@@ -161,6 +161,7 @@ export class PolicyClient {
     const account = await this.rpc.getAccount(keypair.publicKey());
 
     const args = [
+      nativeToScVal(keypair.publicKey(), { type: 'address' }),
       nativeToScVal(params.agent, { type: 'address' }),
       nativeToScVal(toStroops(params.maxPerTx), { type: 'i128' }),
       nativeToScVal(toStroops(params.dailyLimit), { type: 'i128' }),
@@ -203,6 +204,7 @@ export class PolicyClient {
     const account = await this.rpc.getAccount(params.ownerPublicKey);
 
     const args = [
+      nativeToScVal(params.ownerPublicKey, { type: 'address' }),
       nativeToScVal(params.agent, { type: 'address' }),
       nativeToScVal(toStroops(params.maxPerTx), { type: 'i128' }),
       nativeToScVal(toStroops(params.dailyLimit), { type: 'i128' }),

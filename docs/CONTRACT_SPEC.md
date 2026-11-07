@@ -24,6 +24,7 @@ Registers a new AI agent. Panics if the ID already exists.
 
 ```
 register(
+  owner: Address,
   id: String,
   name: String,
   description: String,
@@ -37,6 +38,7 @@ register(
 
 | Arg | Validation |
 |---|---|
+| `owner` | Must authorize the call (`require_auth()`). Becomes the agent owner. |
 | `price_per_call` | Must be ≥ 0. Negative values panic with `InvalidPrice` |
 | `capabilities` | Must be non-empty. Empty vec panics with `EmptyCapabilities` |
 | `id` | Must be unique. Duplicate panics with `AgentAlreadyExists` |
@@ -178,6 +180,7 @@ Creates a new spending policy that authorises an agent to pay autonomously.
 
 ```
 create_policy(
+  owner: Address,
   agent: Address,
   max_per_tx: i128,
   daily_limit: i128,
@@ -187,8 +190,8 @@ create_policy(
 ) -> u64
 ```
 
-Returns the new policy ID (auto-incremented). Both `max_per_tx` and `daily_limit`
-must be > 0 or the call panics with `InvalidAmount`.
+Returns the new policy ID (auto-incremented). `owner` must authorize the call.
+Both `max_per_tx` and `daily_limit` must be > 0 or the call panics with `InvalidAmount`.
 
 Emits: `(symbol("policy"), symbol("create"), policy_id)`
 

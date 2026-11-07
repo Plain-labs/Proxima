@@ -46,7 +46,7 @@ export interface RegisterAgentParams {
   /** Price per call in asset units (e.g. "0.01" for 0.01 USDC) */
   pricePerCall: string;
   paymentAsset: 'USDC' | 'XLM' | string;
-  paymentIssuer: string;
+  paymentIssuer?: string;
   endpointUrl?: string;
 }
 

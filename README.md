@@ -1,6 +1,15 @@
 # Proxima 🧠⚡
 
-**Open-source AI Agent Registry & Autonomous Payment Gateway on Stellar**
+**Open-source AI Agent Registry & Autonomous Payment Gateway on Stellar**.
+
+Live Link: https://proxima-beryl.vercel.app/
+
+
+Contract Address-
+
+Registry: CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R
+
+Policy: CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Built on Stellar](https://img.shields.io/badge/Built%20on-Stellar-blue)](https://stellar.org)
@@ -70,6 +79,9 @@ const policy = await mind.policy.create({ agent: agentAddress, dailyLimit: '10',
 // Agent pays autonomously
 await mind.policy.pay({ policyId, recipient, amount: '0.01', memo: 'API call #4821' })
 ```
+
+For complete setup, registration, policy, payment, and error-handling examples,
+see [docs/SDK_GUIDE.md](./docs/SDK_GUIDE.md).
 
 ### Layer 4 — Explorer Dashboard (`/dashboard`)
 A beautiful React web app for:
@@ -216,9 +228,9 @@ Proxima/
 ### Phase 3 — Integration & Polish (Month 5)
 - [ ] x402 payment flow integration demo
 - [ ] Mainnet deployment
-- [x] Full documentation site
 - [ ] Security review
 - [ ] Video demo + launch post
+- [x] Full documentation site
 
 ---
 
@@ -257,10 +269,11 @@ MIT License — see [LICENSE](./LICENSE)
 
 ## Links
 
-- 🌐 **Live App:** coming soon
+- 🌐 **Live App:** https://nullius-taupe.vercel.app/
 - 📖 **Docs:** `/docs`
-- 💬 **Discord:** coming soon
-- 🐦 **Twitter:** coming soon
+- 💬 **Discord:** [Join the server](https://discord.gg/proxima) *(coming soon — drop a star on the repo and we'll ping you)*
+- 🐦 **Twitter/X:** [@ProximaStellar](https://x.com/ProximaStellar)
+- 🐙 **GitHub:** [IyanuOluwaJesuloba/Proxima](https://github.com/IyanuOluwaJesuloba/Proxima)
 
 ---
 
