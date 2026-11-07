@@ -100,7 +100,7 @@ export const NETWORK_INFO: Record<Network, NetworkInfo> = {
     explorerBase: 'https://stellar.expert/explorer/testnet',
     horizonUrl: 'https://horizon-testnet.stellar.org',
     registryContractId: 'CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R',
-    policyContractId: 'CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ',
+    policyContractId:   'CCU6OJRXDPI4SRBL7ZJPUBTQY633ND2OLDQPMHDD4QBKAZ7IMJ3TUEBZ',
   },
   futurenet: {
     name: 'futurenet',

@@ -9,10 +9,10 @@ Compiled Soroban WASM outputs for the Proxima contracts, committed here for repr
 
 ## Deployed Contract IDs (Testnet)
 
-| Contract | ID |
-|---|---|
-| Agent Registry | `CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R` |
-| Spending Policy | `CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ` |
+| Contract | ID | Status |
+|---|---|---|
+| Agent Registry  | `CDTHE5SNO7UTBTSSVWAYN5TXYNJXZYOUTRMETMHVB4IHGTNRJ6PKE54R` | ✅ Live |
+| Spending Policy | `CCU6OJRXDPI4SRBL7ZJPUBTQY633ND2OLDQPMHDD4QBKAZ7IMJ3TUEBZ` | ✅ Live |
 
 ## Rebuilding
 

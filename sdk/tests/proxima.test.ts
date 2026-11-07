@@ -91,7 +91,7 @@ describe('PolicyClient', () => {
   it('accepts a custom contract ID override', () => {
     const config = resolveConfig({
       network: 'testnet',
-      policyContractId: 'CA4ZN5RGGKBXWYAB36HXTLBB73ROHQKH527GX4GONRWRNVNWFLIHAKKDJ',
+      policyContractId: 'CCU6OJRXDPI4SRBL7ZJPUBTQY633ND2OLDQPMHDD4QBKAZ7IMJ3TUEBZ',
     });
     expect(() => new PolicyClient(config)).not.toThrow();
   });
