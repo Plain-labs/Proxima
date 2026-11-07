@@ -198,21 +198,11 @@ a rating for any agent. This is discussed in [§7.1](#71-open-reputation-updates
 
 ### 7.1 Open reputation updates
 
-`update_reputation()` does not require authorization from the policy owner or
-the agent being rated. Anyone can submit a rating for any agent.
+`update_reputation()` now requires authorization from the agent's registered `owner`. The function signature accepts a `caller: Address` parameter, calls `caller.require_auth()`, and then verifies `caller == agent.owner` before proceeding. This prevents arbitrary addresses from submitting ratings.
 
-**Why it is this way:** The intended flow is that the Spending Policy contract
-calls `update_reputation()` after a successful payment. Since the contracts are
-separate, enforcing a cross-contract caller check requires a more complex
-auth pattern that was deferred.
+**Impact:** Any call to `update_reputation()` that does not originate from the agent's owner will be rejected by the contract with `RegistryError::Unauthorized`.
 
-**Practical impact:** The Bayesian weighting significantly limits the ability
-to manipulate established agents. A new agent (0 calls) can be moved to 100% or
-0% by a single call. Agents with many calls are protected.
-
-**Planned fix:** A future version should either (a) require the policy contract's
-address to be the caller, using a contract-to-contract auth pattern, or (b)
-require `require_auth()` from a registered participant (policy owner or agent).
+**Remaining consideration:** The intended long-term flow is for the Spending Policy contract to call `update_reputation()` automatically after a successful payment. For this to work without requiring the owner to sign each reputation update, a future version should use a cross-contract auth pattern where the policy contract's address is whitelisted as an authorized caller. For now, the owner must manually submit ratings.
 
 ### 7.2 No upgrade path
 
@@ -311,7 +301,7 @@ contracts. Each item links to the relevant code location.
 | Integer overflow protection | ✅ | Cargo.toml: `overflow-checks = true` in release profile |
 | Reputation rating clamped to valid range | ✅ | `registry.rs:175` — `rating.min(10000)` |
 | Daily window uses ledger sequence (no oracle) | ✅ | `policy.rs:148` — `LEDGERS_PER_DAY` constant |
-| `update_reputation()` has no access control | ⚠️ | See [§7.1](#71-open-reputation-updates) |
+| `update_reputation()` has no access control | ✅ | `caller.require_auth()` + owner check added — see [§7.1](#71-open-reputation-updates) |
 | Policy contract requires pre-funding | ⚠️ | See [§7.4](#74-policy-contract-must-be-pre-funded) |
 | No agent ID namespace ownership | ⚠️ | See [§7.5](#75-agent-id-squatting) |
 | Formal audit completed | ❌ | Planned before mainnet deployment |

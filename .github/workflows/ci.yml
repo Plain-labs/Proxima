@@ -14,10 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust stable
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
+        # Reads channel, targets, and components from contracts/rust-toolchain.toml
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2

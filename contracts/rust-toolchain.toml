@@ -1,3 +1,8 @@
 [toolchain]
-channel = "1.81"
+# Pinned to 1.88 — the minimum version required by all transitive dependencies:
+#   - edition2024 support (stable since 1.85)
+#   - darling@0.23 and serde_with@3.21 require rustc 1.88
+# Pinning ensures reproducible builds across local dev, CI, and WASM compilation.
+channel = "1.88"
 targets = ["wasm32-unknown-unknown"]
+components = ["rustfmt", "clippy"]

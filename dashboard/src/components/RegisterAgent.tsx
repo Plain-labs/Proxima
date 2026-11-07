@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useFreighter } from "../hooks/useFreighter";
 import { useAgentExists } from "../hooks/useRegistry";
 import { getProxima, txExplorerUrl } from "../lib/proxima";
+import { USDC_ISSUER } from "@proxima/sdk";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,11 +79,18 @@ export default function RegisterAgent() {
     }
     setStep("deploying"); setErrMsg(null);
     try {
-      const proxima  = getProxima();
-      const unsigned = await proxima.registry.buildRegisterTx({
-        id: form.id, name: form.name, description: form.description,
-        capabilities: caps, pricePerCall: form.pricePerCall,
-        paymentAsset: form.paymentAsset, endpointUrl: form.endpointUrl || "",
+      const proxima = getProxima();
+
+      // Build and prepare the register transaction (unsigned)
+      const unsignedXdr = await proxima.registry.buildRegisterTx({
+        id: form.id,
+        name: form.name,
+        description: form.description,
+        capabilities: capabilityList,
+        pricePerCall: form.pricePerCall,
+        paymentAsset: form.paymentAsset,
+        paymentIssuer: USDC_ISSUER.testnet, // testnet USDC issuer; resolved from asset in production
+        endpointUrl: form.endpointUrl || "",
         ownerPublicKey: freighter.publicKey,
       });
       const signed = await freighter.signTransaction(unsigned);
