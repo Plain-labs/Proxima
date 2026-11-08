@@ -2,6 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install",
   "buildCommand": "npm run build:sdk && npm run build:dashboard",
-  "outputDirectory": "dashboard/dist",
-  "framework": "vite"
+  "outputDirectory": "dashboard/dist"
 }
