@@ -10,9 +10,9 @@
   "scripts": {
     "build:contracts": "cd contracts && cargo build --target wasm32-unknown-unknown --release",
     "test:contracts": "cd contracts && cargo test",
-    "build:sdk": "cd sdk && npm run build",
-    "test:sdk": "cd sdk && npm test",
-    "dev:dashboard": "cd dashboard && npm run dev",
+    "build:sdk": "cd sdk && node ../node_modules/tsup/dist/cli-default.js src/index.ts --format cjs,esm --dts",
+    "test:sdk": "cd sdk && bun test",
+    "dev:dashboard": "cd dashboard && node ../node_modules/vite/bin/vite.js",
     "build:dashboard": "cd dashboard && node ../node_modules/vite/bin/vite.js build",
     "build:all": "npm run build:sdk && npm run build:dashboard",
     "test:all": "npm run test:contracts && npm run test:sdk"

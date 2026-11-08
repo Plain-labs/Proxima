@@ -17,7 +17,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "build": "node ../node_modules/tsup/dist/cli-default.js src/index.ts --format cjs,esm --dts",
     "test": "bun test",
     "lint": "eslint src --ext .ts --max-warnings=10",
     "typecheck": "tsc --noEmit"
